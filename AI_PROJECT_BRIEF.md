@@ -40,6 +40,11 @@ Important project facts:
   `$XDG_DATA_HOME/xlauncher/history.json` (default
   `~/.local/share/xlauncher/history.json`); the last 20 unique apps receive a
   small fuzzy-search ranking boost.
+- GTK4 CSS is loaded from the active theme under
+  `$XDG_DATA_HOME/xlauncher/themes/<name>/theme.css` (default
+  `~/.local/share/xlauncher/themes/default-dark/theme.css`), selected through
+  `config.json`. Theme names are validated; malformed/missing CSS falls back to
+  built-in dark CSS and reports a Turkish status warning.
 - The optional toggle daemon receives commands over a per-user Unix socket.
   GTK mutations are marshalled onto the GLib main loop.
 - Wayland controls window positioning and may deny focus requests. Do not
@@ -109,6 +114,8 @@ same versions.
 ├── fuzzy_search.py
 ├── history_manager.py
 ├── alias_manager.py
+├── theme_manager.py
+├── themes/default-dark/theme.css
 ├── calculator.py
 ├── web_search.py
 ├── app_launcher.py
@@ -121,6 +128,7 @@ same versions.
 │   ├── test_fuzzy_search.py
 │   ├── test_history.py
 │   ├── test_aliases.py
+│   ├── test_theme_manager.py
 │   ├── test_install.py
 │   ├── test_toggle_daemon.py
 │   └── test_web_search.py
@@ -138,8 +146,9 @@ same versions.
 ### `main.py` — application and GTK interface
 
 `XLauncher` subclasses `Gtk.Application`. It creates the undecorated GTK4
-window, installs application CSS, connects the entry's `changed` and `activate`
-signals, displays result rows and handles keyboard navigation.
+window, loads CSS from the theme manager into a `Gtk.CssProvider`, connects the
+entry's `changed` and `activate` signals, displays result rows and handles
+keyboard navigation.
 
 The `results` collection contains four result types:
 
@@ -225,6 +234,16 @@ case-insensitive exact query keys to `app` desktop IDs or `web` HTTP(S) URLs.
 Malformed files fall back to normal search; invalid entries are ignored.
 Desktop app aliases whose ID is not installed show an error instead of
 launching an unrelated command.
+
+### `theme_manager.py` — GTK4 CSS themes
+
+`load_theme()` reads `active_theme` from the user's `config.json`, validates
+the name as a single safe directory component, and reads that theme's
+`theme.css`. The default theme CSS is also bundled in the source/install tree.
+Invalid JSON, missing/unreadable theme files, empty CSS, and GTK CSS parse
+errors return the built-in dark CSS and a Turkish warning for the status label.
+The installed default theme uses GTK's `list` CSS node selector because the
+results widget is `Gtk.ListBox`, not `Gtk.ListView`.
 
 ### `app_launcher.py` — launch a desktop application
 

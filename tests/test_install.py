@@ -39,6 +39,10 @@ class InstallScriptTests(unittest.TestCase):
             self.assertTrue((data_home / "xlauncher" / "main.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "history_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "alias_manager.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "theme_manager.py").is_file())
+            self.assertTrue(
+                (data_home / "xlauncher/themes/default-dark/theme.css").is_file()
+            )
             self.assertTrue((data_home / "xlauncher" / "xlauncher-toggle").is_file())
             self.assertTrue((data_home / "icons/hicolor/scalable/apps/xlauncher.svg").is_file())
 

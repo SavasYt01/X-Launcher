@@ -15,66 +15,9 @@ from calculator import CalculationError, CalculationResult, calculate
 from desktop_parser import DesktopApplication, load_desktop_applications
 from fuzzy_search import search_applications
 from history_manager import load_history_ids, record_application
+from theme_manager import load_theme
 from toggle_daemon import ToggleServer, control_daemon
 from web_search import WebSearchResult, open_web_search, open_web_uri
-
-
-STYLESHEET = """
-window.launcher-window {
-  background-color: transparent;
-}
-
-.launcher-surface {
-  background-color: #000000;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
-}
-
-entry.launcher-entry {
-  min-height: 32px;
-  padding: 12px 18px;
-  border: none;
-  border-radius: 12px;
-  background-color: transparent;
-  background-image: none;
-  box-shadow: none;
-  color: #ffffff;
-  caret-color: #ffffff;
-  font-family: "SF Pro Display", sans-serif;
-  font-size: 16pt;
-}
-
-entry.launcher-entry:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-listbox.launcher-results,
-listbox.launcher-results row {
-  background-color: transparent;
-  color: #ffffff;
-}
-
-listbox.launcher-results row {
-  min-height: 48px;
-  padding: 4px 14px;
-  border-radius: 8px;
-}
-
-listbox.launcher-results row:selected {
-  background-color: #252525;
-}
-
-.launcher-description,
-.launcher-status {
-  color: #aaaaaa;
-  font-size: 10pt;
-}
-
-.launcher-status {
-  padding: 0 18px 8px;
-}
-"""
 
 
 class XLauncher(Gtk.Application):
@@ -91,6 +34,9 @@ class XLauncher(Gtk.Application):
         self.applications = load_desktop_applications()
         self.aliases = load_aliases()
         self.history_ids = load_history_ids()
+        theme = load_theme()
+        self.theme_css = theme.css
+        self.theme_warning = theme.warning
         self.control_server: ToggleServer | None = None
 
     def do_startup(self) -> None:
@@ -116,7 +62,7 @@ class XLauncher(Gtk.Application):
             raise RuntimeError("GTK could not connect to a display.")
 
         provider = Gtk.CssProvider()
-        provider.load_from_data(STYLESHEET.encode("utf-8"))
+        provider.load_from_string(self.theme_css)
         Gtk.StyleContext.add_provider_for_display(
             display,
             provider,
@@ -178,7 +124,7 @@ class XLauncher(Gtk.Application):
             self.window = self._create_window()
         if self.entry is not None:
             self.entry.set_text("")
-        self._set_status("")
+        self._set_status(self.theme_warning or "")
         self.window.present()
         if self.entry is not None:
             self.entry.grab_focus()

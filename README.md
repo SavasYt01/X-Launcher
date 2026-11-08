@@ -16,6 +16,8 @@ isteğe bağlı kullanım geçmişi ve kullanıcı tanımlı takma adlar sunar.
   kimliğini yerel JSON dosyasında saklar ve arama sonuçlarında öne çıkarır.
 - **Takma adlar:** `yt` gibi tek kelimelik takma adları uygulama masaüstü
   kimliklerine veya HTTP(S) adreslerine bağlar.
+- **Harici GTK4 temaları:** `theme.css` dosyalarından tema yükler; ayar veya
+  tema hatalarında yerleşik koyu görünüme döner.
 - **Klavye kullanımı:** `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma,
   `Escape` ile pencereyi gizleme.
 - **Wayland için toggle daemon:** Özel GNOME klavye kısayollarından tetiklenmek
@@ -32,6 +34,7 @@ isteğe bağlı kullanım geçmişi ve kullanıcı tanımlı takma adlar sunar.
 | `fuzzy_search.py` | Bağımlılıksız bulanık eşleştirme ve geçmiş puan katkısı |
 | `history_manager.py` | Son kullanılan uygulamaları atomik JSON kaydıyla saklama |
 | `alias_manager.py` | Kullanıcı takma adlarını yükleme ve tam sorgu eşleştirme |
+| `theme_manager.py` | Kullanıcı GTK4 CSS temasını yükleme ve güvenli geri dönüş |
 | `calculator.py` | İzinli AST işlemleriyle güvenli aritmetik |
 | `web_search.py` | Google sorgusu ve doğrulanmış HTTP(S) adreslerini açma |
 | `app_launcher.py` | `.desktop` girdilerini shell kullanmadan başlatma |
@@ -133,6 +136,29 @@ tanımları yok sayılır.
 Takma adlar başlatıcı açılırken yüklenir. Daemon çalışıyorsa dosyayı
 düzenledikten sonra `xlauncher --stop` çalıştırın; sonraki kısayol çağrısı yeni
 ayarlarla daemon'ı yeniden başlatır.
+
+## Temalar
+
+Temalar `~/.local/share/xlauncher/themes/<tema-adı>/theme.css` konumundan
+yüklenir. `XDG_DATA_HOME` ayarlıysa bunun yerine
+`$XDG_DATA_HOME/xlauncher/themes/` kullanılır. Aktif tema
+`~/.local/share/xlauncher/config.json` dosyasında belirlenir:
+
+```json
+{
+  "active_theme": "default-dark"
+}
+```
+
+Yeni bir tema eklemek için kendi CSS dosyanızı bir alt klasöre kaydedin ve
+`active_theme` değerini klasör adıyla değiştirin. Örneğin
+`themes/nord/theme.css` için değer `nord` olmalıdır. Varsayılan tema
+`themes/default-dark/theme.css` içindedir. GTK `Gtk.ListBox` kullanıldığı için
+sonuç satırlarının seçicisi `list.<css-class> row:selected` biçimindedir;
+GTK CSS widget adı `list` olarak kullanılır. Temalar CSS sözdizimi hatası
+verirse, dosyası yoksa veya yapılandırma geçersizse X-Launcher yerleşik koyu
+CSS'e döner ve Türkçe durum mesajı gösterir. Tema değişikliklerini uygulamak
+için daemon'ı `xlauncher --stop` ile durdurup yeniden açın.
 
 ## Güvenlik ve tasarım kararları
 

@@ -18,10 +18,12 @@ REQUIRED_FILES = (
     "toggle_daemon.py",
     "history_manager.py",
     "alias_manager.py",
+    "theme_manager.py",
     "xlauncher-toggle",
     "install.sh",
     "packaging/xlauncher.desktop",
     "packaging/xlauncher.svg",
+    "themes/default-dark/theme.css",
 )
 
 
@@ -80,6 +82,7 @@ def main() -> int:
         "toggle_daemon.py",
         "history_manager.py",
         "alias_manager.py",
+        "theme_manager.py",
     )
     trees = {name: parse_module(scan, name) for name in modules}
     syntactically_valid = all(tree is not None for tree in trees.values())
@@ -104,6 +107,10 @@ def main() -> int:
         scan.check(
             "GTK4 CSS provider is registered",
             "add_provider_for_display" in main_calls,
+        )
+        scan.check(
+            "Dynamic GTK4 theme is loaded",
+            "load_theme" in main_calls and "load_from_string" in main_calls,
         )
         scan.check(
             "Calculator results can be copied to the clipboard",
