@@ -37,6 +37,8 @@ class InstallScriptTests(unittest.TestCase):
             application_dir = data_home / "applications"
             desktop_file = application_dir / "xlauncher.desktop"
             self.assertTrue((data_home / "xlauncher" / "main.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "history_manager.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "alias_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "xlauncher-toggle").is_file())
             self.assertTrue((data_home / "icons/hicolor/scalable/apps/xlauncher.svg").is_file())
 

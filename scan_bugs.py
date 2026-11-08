@@ -16,6 +16,8 @@ REQUIRED_FILES = (
     "fuzzy_search.py",
     "app_launcher.py",
     "toggle_daemon.py",
+    "history_manager.py",
+    "alias_manager.py",
     "xlauncher-toggle",
     "install.sh",
     "packaging/xlauncher.desktop",
@@ -76,6 +78,8 @@ def main() -> int:
         "fuzzy_search.py",
         "app_launcher.py",
         "toggle_daemon.py",
+        "history_manager.py",
+        "alias_manager.py",
     )
     trees = {name: parse_module(scan, name) for name in modules}
     syntactically_valid = all(tree is not None for tree in trees.values())

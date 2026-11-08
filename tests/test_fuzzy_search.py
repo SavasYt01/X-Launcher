@@ -7,9 +7,15 @@ from fuzzy_search import search_applications
 class FuzzySearchTests(unittest.TestCase):
     def setUp(self) -> None:
         self.applications = [
-            SimpleNamespace(name="Firefox", comment="Web Browser"),
-            SimpleNamespace(name="Google Chrome", comment="Web Browser"),
-            SimpleNamespace(name="Files", comment="File Manager"),
+            SimpleNamespace(
+                name="Firefox", comment="Web Browser", desktop_id="firefox.desktop"
+            ),
+            SimpleNamespace(
+                name="Google Chrome", comment="Web Browser", desktop_id="chrome.desktop"
+            ),
+            SimpleNamespace(
+                name="Files", comment="File Manager", desktop_id="files.desktop"
+            ),
         ]
 
     def test_matches_non_contiguous_initials(self) -> None:
@@ -22,6 +28,20 @@ class FuzzySearchTests(unittest.TestCase):
 
     def test_empty_query_returns_no_results(self) -> None:
         self.assertEqual(search_applications(self.applications, "  "), [])
+
+    def test_recent_application_gets_a_small_ranking_boost(self) -> None:
+        applications = [
+            SimpleNamespace(
+                name="File Manager", comment="", desktop_id="manager.desktop"
+            ),
+            SimpleNamespace(name="Files", comment="", desktop_id="files.desktop"),
+        ]
+
+        results = search_applications(
+            applications, "file", history_ids=["manager.desktop"]
+        )
+
+        self.assertEqual(results[0].desktop_id, "manager.desktop")
 
 
 if __name__ == "__main__":

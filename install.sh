@@ -29,7 +29,7 @@ if ! "$PYTHON" -c 'import gi; gi.require_version("Gtk", "4.0"); from gi.reposito
 fi
 
 mkdir -p "$APP_DIR" "$BIN_DIR" "$APPLICATIONS_DIR" "$ICONS_DIR"
-for file in main.py calculator.py web_search.py desktop_parser.py fuzzy_search.py app_launcher.py toggle_daemon.py; do
+for file in main.py calculator.py web_search.py desktop_parser.py fuzzy_search.py app_launcher.py toggle_daemon.py history_manager.py alias_manager.py; do
     install -m 0644 "$PROJECT_DIR/$file" "$APP_DIR/$file"
 done
 install -m 0755 "$PROJECT_DIR/xlauncher-toggle" "$APP_DIR/xlauncher-toggle"

@@ -35,11 +35,13 @@ def search_applications(
     applications: Sequence[DesktopApplication],
     query: str,
     limit: int = 8,
+    history_ids: Sequence[str] | None = None,
 ) -> list[DesktopApplication]:
     normalized_query = " ".join(query.casefold().split())
     if not normalized_query or limit <= 0:
         return []
 
+    recent_ids = set(history_ids or ())
     ranked: list[tuple[int, str, DesktopApplication]] = []
     for application in applications:
         name = application.name.casefold()
@@ -48,6 +50,8 @@ def search_applications(
         description_score = _match_score(normalized_query, description) // 3
         score = max(name_score, description_score)
         if score:
+            if getattr(application, "desktop_id", "") in recent_ids:
+                score += 40
             ranked.append((score, name, application))
 
     ranked.sort(key=lambda result: (-result[0], result[1]))

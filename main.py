@@ -9,12 +9,14 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Pango", "1.0")
 from gi.repository import Gdk, GLib, Gtk, Pango
 
+from alias_manager import Alias, load_aliases, resolve_alias
 from app_launcher import ApplicationLaunchError, launch_application
 from calculator import CalculationError, CalculationResult, calculate
 from desktop_parser import DesktopApplication, load_desktop_applications
 from fuzzy_search import search_applications
+from history_manager import load_history_ids, record_application
 from toggle_daemon import ToggleServer, control_daemon
-from web_search import WebSearchResult, open_web_search
+from web_search import WebSearchResult, open_web_search, open_web_uri
 
 
 STYLESHEET = """
@@ -83,8 +85,12 @@ class XLauncher(Gtk.Application):
         self.entry: Gtk.Entry | None = None
         self.results_list: Gtk.ListBox | None = None
         self.status_label: Gtk.Label | None = None
-        self.results: list[DesktopApplication | CalculationResult | WebSearchResult] = []
+        self.results: list[
+            DesktopApplication | CalculationResult | WebSearchResult | Alias
+        ] = []
         self.applications = load_desktop_applications()
+        self.aliases = load_aliases()
+        self.history_ids = load_history_ids()
         self.control_server: ToggleServer | None = None
 
     def do_startup(self) -> None:
@@ -208,6 +214,29 @@ class XLauncher(Gtk.Application):
             return
         query = entry.get_text()
         stripped_query = query.lstrip()
+        alias = resolve_alias(query, self.aliases)
+        if alias is not None:
+            if alias.kind == "app":
+                application = next(
+                    (
+                        item
+                        for item in self.applications
+                        if item.desktop_id == alias.value
+                    ),
+                    None,
+                )
+                self.results = [application] if application is not None else []
+                self._set_status(
+                    ""
+                    if application is not None
+                    else f"Takma adın uygulaması bulunamadı: {alias.value}"
+                )
+            else:
+                self.results = [alias]
+                self._set_status("")
+            self._populate_results()
+            return
+
         if stripped_query.startswith("="):
             expression = stripped_query[1:].strip()
             if not expression:
@@ -235,9 +264,15 @@ class XLauncher(Gtk.Application):
             self._populate_results()
             return
 
-        self.results = search_applications(self.applications, query)
+        self.results = search_applications(
+            self.applications, query, history_ids=self.history_ids
+        )
         self._populate_results()
-        self._set_status("" if self.results else ("Uygulama bulunamadı" if query.strip() else ""))
+        self._set_status(
+            ""
+            if self.results
+            else ("Uygulama bulunamadı" if query.strip() else "")
+        )
 
     def _populate_results(self) -> None:
         if self.results_list is None:
@@ -262,6 +297,17 @@ class XLauncher(Gtk.Application):
                 row_content.append(image)
                 title = f"Google'da ara: {application.query}"
                 description_text = "Enter ile varsayılan tarayıcıda ara"
+            elif isinstance(application, Alias):
+                icon_name = (
+                    "web-browser-symbolic"
+                    if application.kind == "web"
+                    else "system-run-symbolic"
+                )
+                image = Gtk.Image.new_from_icon_name(icon_name)
+                image.set_pixel_size(28)
+                row_content.append(image)
+                title = f"{application.key} → {application.value}"
+                description_text = "Takma ad ile web adresi aç"
             else:
                 if application.icon is not None:
                     image = Gtk.Image.new_from_gicon(application.icon)
@@ -338,6 +384,8 @@ class XLauncher(Gtk.Application):
                 self._copy_calculation_result(result)
             elif isinstance(result, WebSearchResult):
                 self._open_web_search(result)
+            elif isinstance(result, Alias):
+                self._open_alias(result)
             else:
                 self._launch_application(result)
 
@@ -360,6 +408,14 @@ class XLauncher(Gtk.Application):
             return
         self._hide_launcher()
 
+    def _open_alias(self, alias: Alias) -> None:
+        try:
+            open_web_uri(alias.value)
+        except (GLib.Error, OSError, RuntimeError, ValueError) as error:
+            self._set_status(f"Takma ad açılamadı: {error}")
+            return
+        self._hide_launcher()
+
     def _launch_selected(self, *args: object) -> None:
         _ = args
         if self.results_list is None:
@@ -374,6 +430,15 @@ class XLauncher(Gtk.Application):
         except (ApplicationLaunchError, GLib.Error, OSError, RuntimeError, TypeError) as error:
             self._set_status(f"{application.name} başlatılamadı: {error}")
             return
+        record_application(application.desktop_id)
+        self.history_ids = [
+            application.desktop_id,
+            *(
+                desktop_id
+                for desktop_id in self.history_ids
+                if desktop_id != application.desktop_id
+            ),
+        ][:20]
         self._hide_launcher()
 
 
