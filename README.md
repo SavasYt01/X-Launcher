@@ -15,8 +15,8 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
   sorgu önekleri; varsayılan motor ayarlanabilir.
 - **Yardımcı komutlar:** Tarih/saat, birim dönüştürme ve X-Launcher içinden
   açıkça kopyalanan metinlerin pano geçmişi.
-- **Geçmiş ба фаворит:** Сонголтоор хэрэглээний давтамж, сүүлийн хэрэглээг
-  эрэмбэлж, дуртай програмуудыг хоосон хайлтад харуулна.
+- **Geçmiş ve favoriler:** Seçime bağlı olarak son kullanılanları öne çıkarır;
+  favoriler boş aramada gösterilebilir.
 - **Takma adlar:** Uygulama desktop ID'lerine veya HTTP(S) adreslerine kişisel
   kısayollar.
 - **GTK4 tema sistemi:** Kullanıcı temaları harici CSS dosyalarından yüklenir;
@@ -25,6 +25,10 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
   geçmiş, favori ve pano geçmişi seçenekleri.
 - **Daemon ve yenileme:** Kullanıcıya özel Unix socket; ayarları ve uygulama
   kataloğunu komutla yenileme, isteğe bağlı otomatik tarama.
+- **Yardım ve tanılama:** `help`, `xlauncher --help` ve GTK penceresi açmadan
+  çalışan, ağ kullanmayan `xlauncher --doctor`.
+- **AppImage entegrasyonu:** İsteğe bağlı, native kurulumdan ayrı masaüstü
+  girdisi; AppImage taşınırsa yeniden bütünleştirme gerekir.
 
 ## Teknoloji ve dosya yapısı
 
@@ -38,12 +42,16 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
 | `providers.py` | Yerel tarih/saat ve Decimal tabanlı birim dönüştürme |
 | `web_search.py` | URL-kodlanmış web araması ve HTTP(S) URI doğrulaması |
 | `app_launcher.py` | `.desktop` uygulamalarını shell kullanmadan başlatma |
+| `app_launch_context.py` | AppImage ortam değişkenlerini host uygulamalardan yalıtma |
 | `config_manager.py` | Merkezi, doğrulanmış ayarlar ve atomik JSON kaydı |
 | `history_manager.py`, `favorites_manager.py` | Kullanıcıya özel geçmiş ve favoriler |
 | `clipboard_history.py` | Yalnızca X-Launcher'ın açıkça kopyaladığı metinleri saklama |
 | `alias_manager.py`, `theme_manager.py` | Alias ve CSS tema yükleme |
 | `preferences_window.py` | GTK4 ayarlar penceresi |
 | `toggle_daemon.py` | Unix socket daemon, toggle ve reload komutları |
+| `launcher_cli.py`, `doctor.py` | GTK yüklemeden CLI yardım, sürüm ve çevrimdışı tanılama |
+| `appimage_integration.py` | Kullanıcı düzeyinde, native girdiyi koruyan AppImage entegrasyonu |
+| `help_content.py` | Launcher içindeki Türkçe yardım satırları |
 
 Python ek bağımlılığı yoktur. GTK4, PyGObject, Gio/GioUnix ve ilgili GI
 typelib'leri işletim sisteminin paketlerinden sağlanır.
@@ -100,7 +108,13 @@ xlauncher --reload        # Ayarları ve uygulama kataloğunu yenile
 xlauncher --reload-apps   # Yalnızca uygulama listesini yenile
 xlauncher --stop
 xlauncher --version
+xlauncher --help
+xlauncher --doctor
 ```
+
+`--integrate` ve `--unintegrate` yalnızca AppImage içinden çalışır. Bu
+komutlar `xlauncher-appimage.desktop` adlı ayrı bir girdi yönetir; native
+kurulumun `xlauncher.desktop` girdisine dokunmaz.
 
 ## Kullanım
 
@@ -117,6 +131,7 @@ xlauncher --version
 | `cb` | X-Launcher'dan kopyalanan metin geçmişini gösterir |
 | `cb clear` | Pano geçmişini onay isteyerek siler |
 | `yt` | Tanımlı alias'ı çözer (alias varsa komut önekinden önce gelir) |
+| `help` | Launcher içindeki Türkçe kullanım ipuçlarını gösterir |
 
 Klavye: `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma, `Escape` ile
 pencereyi gizleme, `Ctrl+D` ile seçili uygulamayı favoriye alma/kaldırma,
@@ -164,13 +179,33 @@ bash -n uninstall.sh
 GitHub Actions, Ubuntu 24.04 üzerinde GTK4 introspection bağlamalarıyla aynı
 test ve tanılama taramasını çalıştırır.
 
-## Deneysel / bakımı yapılmayan AppImage
+## Deneysel AppImage
 
-AppImage tarifi (`packaging/AppImageBuilder.yml`) Ubuntu Jammy amd64 hedefler;
-başka sürümlerde, özellikle Ubuntu 26.04 / GNOME 50.1 gibi daha yeni
-ortamlarda Python/GTK sürüm uyumluluğu doğrulanmamıştır. AppImage mevcut
-haliyle deneysel ve bakımı yapılmayan seçenektir. Üretim veya günlük kullanım
-için `./install.sh` yerel kurulumu tercih edin.
+AppImage için özel AppDir derleyicisi GTK4, PyGObject, Python, typelib'leri ve
+gerekli dinamik kütüphaneleri paketler. Derleme hedefi Ubuntu 24.04 x86_64'tür;
+bu, daha eski glibc sürümlerinde çalışacağı anlamına gelmez. Build aracı URL ve
+SHA-256 ile sabitlenmiştir. AppImage, native kurulumdan ayrı tutulur.
+
+Ubuntu 24.04 üzerinde AppImage geliştirme araçları ve GTK bağımlılıkları:
+
+```bash
+sudo apt install python3-gi gir1.2-gtk-4.0 libgtk-4-dev libglib2.0-bin desktop-file-utils
+```
+
+AppImage oluşturmak ve çıkarılmış çıktının başlangıç testini çalıştırmak:
+
+```bash
+bash scripts/build-appimage.sh
+bash scripts/test-appimage.sh
+```
+
+GitHub Actions, Ubuntu 24.04 üzerinde AppImage oluşturup `--version`, `--help`,
+`--doctor`, masaüstü entegrasyonunu ve kaldırılmasını, ayrıca yerel kurulumun
+masaüstü girdisinin korunmasını doğrular. Workflow başarıyla tamamlanana kadar
+AppImage üretime hazır veya tüm sistemlerde doğrulanmış kabul edilmemelidir.
+Paketlenen bileşenlerin sürüm ve telif bildirimleri AppImage içindeki
+`usr/share/doc/xlauncher/THIRD_PARTY_NOTICES.md` dosyasındadır. Günlük
+kullanımda `./install.sh` yerel kurulumu önerilir.
 
 ## Lisans
 

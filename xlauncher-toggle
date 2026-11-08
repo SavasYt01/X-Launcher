@@ -21,9 +21,14 @@ if not (project_directory / "main.py").is_file():
 
 sys.path.insert(0, str(project_directory))
 
-from main import main
+from launcher_cli import dispatch
 
 
 if __name__ == "__main__":
     arguments = sys.argv[1:] or ["--toggle"]
+    result = dispatch(arguments)
+    if result is not None:
+        raise SystemExit(result)
+    from main import main
+
     raise SystemExit(main([str(project_directory / "main.py"), *arguments]))

@@ -42,6 +42,10 @@ class InstallScriptTests(unittest.TestCase):
             self.assertTrue((data_home / "xlauncher" / "theme_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "config_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "preferences_window.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "launcher_cli.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "app_launch_context.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "doctor.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "help_content.py").is_file())
             self.assertTrue(
                 (data_home / "xlauncher/themes/default-dark/theme.css").is_file()
             )
@@ -61,7 +65,17 @@ class InstallScriptTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(launcher.returncode, 0, launcher.stderr)
-            self.assertIn("GTK4 application launcher", launcher.stdout)
+            self.assertIn("GTK4 Linux uygulama başlatıcısı", launcher.stdout)
+            doctor = subprocess.run(
+                [str(bin_dir / "xlauncher"), "--doctor"],
+                cwd=PROJECT_DIR,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(doctor.returncode, 0, doctor.stdout + doctor.stderr)
+            self.assertIn("sistem tanılaması", doctor.stdout)
 
             settings = data_home / "xlauncher" / "config.json"
             history = data_home / "xlauncher" / "history.json"
@@ -80,6 +94,7 @@ class InstallScriptTests(unittest.TestCase):
             )
             self.assertEqual(uninstall.returncode, 0, uninstall.stderr)
             self.assertFalse((data_home / "xlauncher" / "main.py").exists())
+            self.assertFalse((data_home / "xlauncher" / "app_launch_context.py").exists())
             self.assertTrue(settings.is_file())
             self.assertTrue(history.is_file())
             self.assertTrue(custom_theme.is_file())

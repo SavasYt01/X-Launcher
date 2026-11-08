@@ -45,9 +45,17 @@ class WebSearchTests(unittest.TestCase):
                 validate_web_uri(uri)
 
     @patch("web_search.Gio.AppInfo.launch_default_for_uri", return_value=True)
-    def test_opens_a_web_uri_with_gio(self, launch_uri: MagicMock) -> None:
+    @patch("web_search.create_app_launch_context", return_value=object())
+    def test_opens_a_web_uri_with_gio(
+        self,
+        launch_context: MagicMock,
+        launch_uri: MagicMock,
+    ) -> None:
         open_web_uri("https://youtube.com")
-        launch_uri.assert_called_once_with("https://youtube.com", None)
+        launch_uri.assert_called_once_with(
+            "https://youtube.com",
+            launch_context.return_value,
+        )
 
 
 if __name__ == "__main__":

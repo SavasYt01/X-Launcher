@@ -29,9 +29,11 @@ class PreferencesWindow(Gtk.Window):
         super().__init__(title="X-Launcher Ayarları", transient_for=parent)
         self.set_modal(False)
         self.set_default_size(620, 680)
+        self.connect("close-request", self._on_close_request)
         self.config = config
         self.applications = applications
         self.on_saved = on_saved
+        self._confirmation_dialog: Gtk.Window | None = None
         self.favorites = FavoritesManager()
         self.aliases = load_aliases()
         self.app_ids = {application.desktop_id for application in applications}
@@ -234,6 +236,55 @@ class PreferencesWindow(Gtk.Window):
             )
             self.alias_list.append(row)
 
+    def _confirm_destructive(
+        self,
+        title: str,
+        message: str,
+        confirm_label: str,
+        action: Callable[[], None],
+    ) -> None:
+        if self._confirmation_dialog is not None:
+            self._confirmation_dialog.present()
+            return
+        dialog = Gtk.Window(title=title, transient_for=self, modal=True)
+        dialog.set_default_size(360, 140)
+        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        content.set_margin_top(16)
+        content.set_margin_bottom(16)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
+        content.append(Gtk.Label(label=message, xalign=0, wrap=True))
+        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        cancel = Gtk.Button(label="Vazgeç")
+        confirm = Gtk.Button(label=confirm_label)
+
+        def finish(button: Gtk.Button, accepted: bool) -> None:
+            _ = button
+            self._confirmation_dialog = None
+            dialog.close()
+            if accepted:
+                action()
+
+        cancel.connect("clicked", finish, False)
+        confirm.connect("clicked", finish, True)
+        buttons.append(cancel)
+        buttons.append(confirm)
+        content.append(buttons)
+        dialog.set_child(content)
+        dialog.connect("close-request", self._on_confirmation_close_request)
+        self._confirmation_dialog = dialog
+        dialog.present()
+
+    def _on_close_request(self, window: Gtk.Window) -> bool:
+        _ = window
+        self._confirmation_dialog = None
+        return False
+
+    def _on_confirmation_close_request(self, window: Gtk.Window) -> bool:
+        if self._confirmation_dialog is window:
+            self._confirmation_dialog = None
+        return False
+
     def _save_alias(self, _button: Gtk.Button) -> None:
         _ = _button
         key = self.alias_key.get_text().strip()
@@ -268,13 +319,22 @@ class PreferencesWindow(Gtk.Window):
             self.status.set_text("Silmek için bir takma ad seçin.")
             return
         alias = list(self.aliases.values())[row.get_index()]
-        updated = self.aliases.copy()
-        updated.pop(alias.key.casefold(), None)
-        if save_aliases(updated):
-            self._refresh_alias_list()
-            self.status.set_text("Takma ad silindi.")
-        else:
-            self.status.set_text("Takma ad silinemedi.")
+
+        def remove() -> None:
+            updated = self.aliases.copy()
+            updated.pop(alias.key.casefold(), None)
+            if save_aliases(updated):
+                self._refresh_alias_list()
+                self.status.set_text("Takma ad silindi.")
+            else:
+                self.status.set_text("Takma ad silinemedi.")
+
+        self._confirm_destructive(
+            "Takma ad silinsin mi?",
+            f"{alias.key} takma adı kalıcı olarak silinecek.",
+            "Sil",
+            remove,
+        )
 
     def _refresh_user_data_lists(self) -> None:
         self._clear_list(self.history_list)
@@ -311,6 +371,14 @@ class PreferencesWindow(Gtk.Window):
 
     def _clear_app_history(self, _button: Gtk.Button) -> None:
         _ = _button
+        self._confirm_destructive(
+            "Uygulama geçmişini temizle?",
+            "Son kullanılan uygulamaların geçmişi kalıcı olarak silinecek.",
+            "Temizle",
+            self._clear_app_history_now,
+        )
+
+    def _clear_app_history_now(self) -> None:
         from history_manager import clear_history
 
         if clear_history():
@@ -326,49 +394,38 @@ class PreferencesWindow(Gtk.Window):
             self.status.set_text("Silmek için bir favori seçin.")
             return
         desktop_id = self.favorite_ids[row.get_index()]
-        remaining = [item for item in self.favorite_ids if item != desktop_id]
-        if self.favorites.save(remaining):
-            self._refresh_user_data_lists()
-            self.status.set_text("Favori kaldırıldı.")
-        else:
-            self.status.set_text("Favori kaldırılamadı.")
+
+        def remove() -> None:
+            remaining = [item for item in self.favorite_ids if item != desktop_id]
+            if self.favorites.save(remaining):
+                self._refresh_user_data_lists()
+                self.status.set_text("Favori kaldırıldı.")
+            else:
+                self.status.set_text("Favori kaldırılamadı.")
+
+        self._confirm_destructive(
+            "Favori kaldırılsın mı?",
+            "Seçilen uygulama favorilerden kaldırılacak.",
+            "Kaldır",
+            remove,
+        )
 
     def _confirm_clear_clipboard(self, _button: Gtk.Button) -> None:
         _ = _button
-        dialog = Gtk.Window(title="Pano geçmişini temizle?", transient_for=self, modal=True)
-        dialog.set_default_size(320, 120)
-        content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
-        content.set_margin_top(16)
-        content.set_margin_bottom(16)
-        content.set_margin_start(16)
-        content.set_margin_end(16)
-        content.append(Gtk.Label(label="Bu işlem geri alınamaz.", xalign=0))
-        buttons = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        cancel = Gtk.Button(label="Vazgeç")
+        self._confirm_destructive(
+            "Pano geçmişini temizle?",
+            "X-Launcher içinden kopyalanmış metinler kalıcı olarak silinecek.",
+            "Temizle",
+            self._clear_clipboard_history,
+        )
 
-        def cancel_clear(button: Gtk.Button) -> None:
-            _ = button
-            dialog.close()
+    def _clear_clipboard_history(self) -> None:
+        from clipboard_history import clear_clipboard_history
 
-        cancel.connect("clicked", cancel_clear)
-        confirm = Gtk.Button(label="Temizle")
-
-        def clear(button: Gtk.Button) -> None:
-            _ = button
-            from clipboard_history import clear_clipboard_history
-
-            if clear_clipboard_history():
-                self.status.set_text("Pano geçmişi temizlendi.")
-            else:
-                self.status.set_text("Pano geçmişi temizlenemedi.")
-            dialog.close()
-
-        confirm.connect("clicked", clear)
-        buttons.append(cancel)
-        buttons.append(confirm)
-        content.append(buttons)
-        dialog.set_child(content)
-        dialog.present()
+        if clear_clipboard_history():
+            self.status.set_text("Pano geçmişi temizlendi.")
+        else:
+            self.status.set_text("Pano geçmişi temizlenemedi.")
 
     def _save_settings(self, _button: Gtk.Button) -> None:
         _ = _button

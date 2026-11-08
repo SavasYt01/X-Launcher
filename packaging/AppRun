@@ -3,18 +3,19 @@ set -eu
 
 APPDIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 export APPDIR
-export PATH="$APPDIR/usr/bin:${PATH:-/usr/bin:/bin}"
-export PYTHONPATH="$APPDIR/usr/bin:$APPDIR/usr/lib/python3/dist-packages:$APPDIR/usr/lib/python3/site-packages${PYTHONPATH:+:$PYTHONPATH}"
-export GI_TYPELIB_PATH="$APPDIR/usr/lib/girepository-1.0:$APPDIR/usr/lib/x86_64-linux-gnu/girepository-1.0${GI_TYPELIB_PATH:+:$GI_TYPELIB_PATH}"
-export LD_LIBRARY_PATH="$APPDIR/usr/lib:$APPDIR/usr/lib/x86_64-linux-gnu${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-export XDG_DATA_DIRS="$APPDIR/usr/share${XDG_DATA_DIRS:+:$XDG_DATA_DIRS}"
+. "$APPDIR/usr/share/xlauncher/appimage-env.sh"
+xlauncher_prepare_environment
 
-if [ "${1-}" = "--daemon" ] || [ "${1-}" = "--stop" ]; then
-    exec python3 "$APPDIR/usr/bin/main.py" "$@"
+case "${1-}" in
+    --help|-h|--version|--doctor|--integrate|--unintegrate)
+        ;;
+    *)
+        xlauncher_prepare_pixbuf_cache
+        ;;
+esac
+
+if [ "$#" -eq 0 ]; then
+    set -- --toggle
 fi
 
-if [ "$#" -gt 0 ]; then
-    exec python3 "$APPDIR/usr/bin/main.py" "$@"
-fi
-
-exec "$APPDIR/usr/bin/xlauncher-toggle"
+exec "$APPDIR/usr/bin/xlauncher-toggle" "$@"

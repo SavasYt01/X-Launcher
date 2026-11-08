@@ -26,6 +26,7 @@ from config_manager import ConfigManager
 from desktop_parser import DesktopApplication, load_desktop_applications
 from favorites_manager import FavoritesManager
 from fuzzy_search import search_applications
+from help_content import HELP_ENTRIES, HelpEntry
 from history_manager import history_scores, load_history_ids, record_application
 from preferences_window import PreferencesWindow
 from providers import ProviderResult
@@ -54,6 +55,7 @@ class XLauncher(Gtk.Application):
             | Alias
             | ClipboardEntry
             | ProviderResult
+            | HelpEntry
         ] = []
         self.config = ConfigManager()
         self.favorites_manager = FavoritesManager()
@@ -212,6 +214,8 @@ class XLauncher(Gtk.Application):
         self._set_status("")
         if route.kind == "empty":
             self.results = self._empty_query_results()
+        elif route.kind == "help":
+            self.results = list(HELP_ENTRIES)
         elif route.kind == "alias":
             alias = route.value
             if alias.kind == "app":
@@ -339,6 +343,12 @@ class XLauncher(Gtk.Application):
                 row_content.append(image)
                 title = application.title
                 description_text = application.description
+            elif isinstance(application, HelpEntry):
+                image = Gtk.Image.new_from_icon_name("help-about-symbolic")
+                image.set_pixel_size(28)
+                row_content.append(image)
+                title = application.title
+                description_text = application.description
             else:
                 image = Gtk.Image.new_from_icon_name("application-x-executable")
                 if application.icon is not None:
@@ -394,6 +404,11 @@ class XLauncher(Gtk.Application):
                 return True
             if keyval in (Gdk.KEY_d, Gdk.KEY_D):
                 return self._toggle_favorite()
+            if keyval in (Gdk.KEY_l, Gdk.KEY_L):
+                if self.entry is not None:
+                    self.entry.set_text("")
+                    self.entry.grab_focus()
+                return True
         if keyval in (Gdk.KEY_Up, Gdk.KEY_Down):
             return self._move_selection(-1 if keyval == Gdk.KEY_Up else 1)
         if keyval in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
@@ -433,6 +448,8 @@ class XLauncher(Gtk.Application):
             elif isinstance(result, ProviderResult):
                 if result.value:
                     self._copy_text(result.value)
+            elif isinstance(result, HelpEntry):
+                return
             else:
                 self._launch_application(result)
 
@@ -596,7 +613,16 @@ class XLauncher(Gtk.Application):
             self.applications,
             self._reload_user_files,
         )
+        self.preferences_window.connect(
+            "close-request",
+            self._on_preferences_close_request,
+        )
         self.preferences_window.present()
+
+    def _on_preferences_close_request(self, window: Gtk.Window) -> bool:
+        if self.preferences_window is window:
+            self.preferences_window = None
+        return False
 
     def _reload_user_files(self) -> None:
         self.config.load()
@@ -708,16 +734,16 @@ class XLauncher(Gtk.Application):
 
 def main(argv: list[str] | None = None) -> int:
     arguments = list(sys.argv if argv is None else argv)
-    parser = argparse.ArgumentParser(description="GTK4 application launcher")
+    parser = argparse.ArgumentParser(description="GTK4 Linux uygulama başlatıcısı")
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {VERSION}"
     )
     mode = parser.add_mutually_exclusive_group()
-    mode.add_argument("--daemon", action="store_true", help="run as a background launcher daemon")
-    mode.add_argument("--toggle", action="store_true", help="toggle the daemon's launcher window")
-    mode.add_argument("--stop", action="store_true", help="stop the launcher daemon")
-    mode.add_argument("--reload", action="store_true", help="reload settings and applications")
-    mode.add_argument("--reload-apps", action="store_true", help="rescan installed applications")
+    mode.add_argument("--daemon", action="store_true", help="arka plan daemon'ı olarak çalıştır")
+    mode.add_argument("--toggle", action="store_true", help="başlatıcı penceresini aç veya gizle")
+    mode.add_argument("--stop", action="store_true", help="başlatıcı daemon'ını durdur")
+    mode.add_argument("--reload", action="store_true", help="ayarları ve uygulamaları yenile")
+    mode.add_argument("--reload-apps", action="store_true", help="kurulu uygulamaları yeniden tara")
     options = parser.parse_args(arguments[1:])
 
     if options.toggle or options.stop or options.reload or options.reload_apps:

@@ -8,6 +8,8 @@ import gi
 gi.require_version("Gio", "2.0")
 from gi.repository import Gio
 
+from app_launch_context import create_app_launch_context
+
 
 @dataclass(frozen=True)
 class WebSearchResult:
@@ -73,7 +75,7 @@ def validate_web_uri(uri: str) -> str:
 def open_web_uri(uri: str) -> None:
     """Open a validated HTTP(S) URL in the configured default browser."""
     safe_uri = validate_web_uri(uri)
-    if not Gio.AppInfo.launch_default_for_uri(safe_uri, None):
+    if not Gio.AppInfo.launch_default_for_uri(safe_uri, create_app_launch_context()):
         raise RuntimeError("The default browser could not be opened.")
 
 

@@ -5,6 +5,7 @@ import gi
 gi.require_version("GioUnix", "2.0")
 from gi.repository import GLib, GioUnix
 
+from app_launch_context import create_app_launch_context
 from desktop_parser import DesktopApplication
 
 
@@ -17,7 +18,7 @@ def launch_application(application: DesktopApplication) -> None:
     if not isinstance(application.app_info, GioUnix.DesktopAppInfo):
         raise TypeError("The selected entry is not a launchable desktop application.")
     try:
-        launched = application.app_info.launch([], None)
+        launched = application.app_info.launch([], create_app_launch_context())
     except GLib.Error as error:
         raise ApplicationLaunchError(str(error)) from error
     if not launched:

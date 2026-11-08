@@ -2,4 +2,4 @@
 
 APP_ID = "io.github.savasy01.xlauncher"
 APP_NAME = "X-Launcher"
-VERSION = "1.1.0"
+VERSION = "1.2.0"

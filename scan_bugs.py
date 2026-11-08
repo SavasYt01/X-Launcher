@@ -15,6 +15,7 @@ REQUIRED_FILES = (
     "desktop_parser.py",
     "fuzzy_search.py",
     "app_launcher.py",
+    "app_launch_context.py",
     "toggle_daemon.py",
     "history_manager.py",
     "alias_manager.py",
@@ -26,12 +27,23 @@ REQUIRED_FILES = (
     "clipboard_history.py",
     "preferences_window.py",
     "version.py",
+    "launcher_cli.py",
+    "doctor.py",
+    "appimage_integration.py",
+    "help_content.py",
     "xlauncher-toggle",
     "install.sh",
     "uninstall.sh",
     ".github/workflows/tests.yml",
+    ".github/workflows/appimage.yml",
     "packaging/xlauncher.desktop",
     "packaging/xlauncher.svg",
+    "packaging/AppRun",
+    "packaging/appimage-env.sh",
+    "packaging/THIRD_PARTY_NOTICES.md",
+    "scripts/build_appdir.py",
+    "scripts/build-appimage.sh",
+    "scripts/test-appimage.sh",
     "themes/default-dark/theme.css",
 )
 
@@ -88,6 +100,7 @@ def main() -> int:
         "desktop_parser.py",
         "fuzzy_search.py",
         "app_launcher.py",
+        "app_launch_context.py",
         "toggle_daemon.py",
         "history_manager.py",
         "alias_manager.py",
@@ -99,6 +112,11 @@ def main() -> int:
         "clipboard_history.py",
         "preferences_window.py",
         "version.py",
+        "launcher_cli.py",
+        "doctor.py",
+        "appimage_integration.py",
+        "help_content.py",
+        "scripts/build_appdir.py",
     )
     trees = {name: parse_module(scan, name) for name in modules}
     syntactically_valid = all(tree is not None for tree in trees.values())
@@ -187,6 +205,33 @@ def main() -> int:
             for node in ast.walk(app_tree)
         )
         scan.check("No shell-based application launch", not unsafe_shell_launch)
+    launch_context_tree = trees["app_launch_context.py"]
+    if launch_context_tree is not None:
+        context_calls = call_names(launch_context_tree)
+        scan.check(
+            "AppImage child applications restore host environment",
+            "AppLaunchContext" in context_calls and "unsetenv" in context_calls,
+        )
+
+    cli_tree = trees["launcher_cli.py"]
+    if cli_tree is not None:
+        cli_source = (ROOT / "launcher_cli.py").read_text(encoding="utf-8")
+        scan.check(
+            "CLI help and doctor dispatch before GTK imports",
+            "from doctor import run" in cli_source and "import gi" not in cli_source,
+        )
+
+    appimage_sources = (
+        (ROOT / "packaging" / "AppRun").read_text(encoding="utf-8")
+        + (ROOT / "scripts" / "build-appimage.sh").read_text(encoding="utf-8")
+        + (ROOT / "scripts" / "test-appimage.sh").read_text(encoding="utf-8")
+    )
+    scan.check(
+        "AppImage tool is checksum-pinned and smoke-tested",
+        "APPIMAGETOOL_SHA256=" in appimage_sources
+        and "--appimage-extract" in appimage_sources
+        and "--doctor" in appimage_sources,
+    )
 
     print("\nRunning unit tests:")
     test_result = subprocess.run(

@@ -13,6 +13,7 @@ class CommandRouterTests(unittest.TestCase):
         self.assertEqual(route.value, ("python tutorial", "youtube"))
 
     def test_routes_existing_and_new_commands(self) -> None:
+        self.assertEqual(route_query("help").kind, "help")
         self.assertEqual(route_query("= 2 + 2").kind, "calculator")
         self.assertEqual(route_query("g python").value, ("python", "google"))
         self.assertEqual(route_query("s GTK", default_engine="brave").value, ("GTK", "brave"))

@@ -19,9 +19,13 @@ jobs:
 
       - name: Validate source and scripts
         run: |
-          /usr/bin/python3 -m py_compile *.py xlauncher-toggle
+          /usr/bin/python3 -m py_compile *.py xlauncher-toggle scripts/build_appdir.py
           sh -n install.sh
           sh -n uninstall.sh
+          sh -n packaging/AppRun
+          sh -n packaging/appimage-env.sh
+          bash -n scripts/build-appimage.sh
+          bash -n scripts/test-appimage.sh
 
       - name: Run unit tests and project scan
         run: /usr/bin/python3 scan_bugs.py

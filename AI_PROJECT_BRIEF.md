@@ -18,8 +18,9 @@ Never use eval() for calculator input, shell execution for desktop launch or
 web search, or GTK3 APIs. Launch desktop entries through Gio,
 open web addresses through Gio.AppInfo.launch_default_for_uri(), and use
 Gdk.Display.get_default().get_clipboard().set_text() for GTK4 clipboard writes.
-Do not claim Wayland guarantees window position or focus. Do not claim AppImage
-compatibility beyond its unvalidated Ubuntu Jammy amd64 recipe.
+Do not claim Wayland guarantees window position or focus. AppImage support is
+limited to the Ubuntu 24.04 x86_64 build and smoke-test workflow; never claim a
+tested release unless the actual artifact has passed that workflow.
 
 Explain changed files and verified test results. Do not claim GUI behavior,
 builds, or platform compatibility that was not actually tested.
@@ -79,6 +80,7 @@ and other user-facing status messages are in Turkish.
 | `providers.py` | Local date/time and Decimal unit conversions |
 | `web_search.py` | URL-encoded search URIs, known search engines, validated HTTP(S) opening |
 | `app_launcher.py` | Launch a retained Gio desktop-entry object without shell parsing |
+| `app_launch_context.py` | Restore host environment for applications launched from AppImage |
 | `config_manager.py` | Validated central settings and atomic private JSON writes |
 | `history_manager.py` | Recent app IDs, timestamps, usage counts, time/frequency ranking |
 | `favorites_manager.py` | Persist and validate favorite desktop IDs |
@@ -149,7 +151,15 @@ xlauncher --reload
 xlauncher --reload-apps
 xlauncher --stop
 xlauncher --version
+xlauncher --help
+xlauncher --doctor
+xlauncher --integrate
+xlauncher --unintegrate
 ```
+
+`--help`, `--version`, and `--doctor` must run before GTK is imported.
+`--doctor` is offline. AppImage integration is opt-in and uses a separate
+desktop entry; it must not overwrite or remove the native installation.
 
 On Wayland, a GNOME custom shortcut should invoke `xlauncher`; do not implement
 global key capture in the Python process. Reload commands start a daemon if
@@ -175,6 +185,8 @@ python3 -m unittest discover -s tests -v
 python3 scan_bugs.py
 bash -n install.sh
 bash -n uninstall.sh
+bash -n scripts/build-appimage.sh
+bash -n scripts/test-appimage.sh
 ```
 
 GitHub Actions runs tests and source/script validation on Ubuntu 24.04 with GTK4
@@ -183,10 +195,12 @@ favorites, clipboard, aliases, providers, themes, daemon sockets and install/
 uninstall behavior. A passing headless unit suite does not verify visual
 behavior on every Wayland compositor.
 
-AppImage packaging is **experimental and unmaintained**. Its current recipe
-targets Ubuntu Jammy amd64 and is not validated on newer Ubuntu/GNOME/Python/
-GTK releases. Do not present it as a tested installation option; prefer
-`./install.sh`.
+The primary installation remains `./install.sh`. AppImage packaging uses
+`scripts/build_appdir.py` and a pinned/checksummed `appimagetool` on Ubuntu
+24.04 x86_64. The pipeline builds the artifact, extracts it, checks CLI/doctor
+behavior, and validates opt-in integration while preserving a native desktop
+entry. It is not production-ready or validated on any other target unless the
+actual artifact and its CI run have been inspected.
 
 ## Design and change constraints
 

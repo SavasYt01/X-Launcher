@@ -17,9 +17,10 @@ esac
 
 for file in \
     main.py calculator.py web_search.py desktop_parser.py fuzzy_search.py \
-    app_launcher.py toggle_daemon.py history_manager.py alias_manager.py \
+    app_launcher.py app_launch_context.py toggle_daemon.py history_manager.py alias_manager.py \
     theme_manager.py config_manager.py favorites_manager.py providers.py \
     command_router.py clipboard_history.py preferences_window.py version.py \
+    launcher_cli.py doctor.py appimage_integration.py help_content.py \
     xlauncher-toggle
 do
     rm -f "$APP_DIR/$file"

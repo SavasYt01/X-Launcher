@@ -26,6 +26,8 @@ def route_query(
         return QueryRoute("empty")
 
     lowered = trimmed.casefold()
+    if lowered == "help":
+        return QueryRoute("help")
     if lowered.startswith("="):
         return QueryRoute("calculator", trimmed[1:].strip())
     if lowered in {"cb", "cb clear"}:
