@@ -40,6 +40,7 @@ class InstallScriptTests(unittest.TestCase):
             self.assertTrue((data_home / "xlauncher" / "history_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "alias_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "theme_manager.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "file_search.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "config_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "preferences_window.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "launcher_cli.py").is_file())

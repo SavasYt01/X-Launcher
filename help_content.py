@@ -9,21 +9,34 @@ class HelpEntry:
     description: str
 
 
+QUICK_HELP_ENTRIES = (
+    HelpEntry("Hesap makinesi", "5*3 yazın; Enter sonucu panoya kopyalar."),
+    HelpEntry(
+        "Dosya ara",
+        "f fotoğraf.png yazın; Enter varsayılan uygulamada açar.",
+    ),
+    HelpEntry("Pano geçmişi", "cb ile X-Launcher içinde kopyalanan metinleri görün."),
+    HelpEntry("Komutlar ve kısayollar", "help yazın; tüm komutlar listelenir."),
+)
+
 HELP_ENTRIES = (
     HelpEntry("Uygulama ara", "Uygulama adını yazın; ör. firefox veya code."),
-    HelpEntry("Hesap makinesi", "= (5 + 3) * 2 biçiminde güvenli hesaplama yapın."),
-    HelpEntry("Google", "g arama ifadesi"),
-    HelpEntry("DuckDuckGo", "ddg arama ifadesi"),
-    HelpEntry("Brave Search", "br arama ifadesi"),
-    HelpEntry("YouTube", "yt arama ifadesi"),
-    HelpEntry("GitHub", "gh arama ifadesi"),
-    HelpEntry("Varsayılan arama motoru", "s arama ifadesi; motoru Ayarlar'dan seçin."),
+    *QUICK_HELP_ENTRIES[:2],
+    HelpEntry("Web araması", "g, ddg, br, yt, gh veya s önekiyle arayın."),
     HelpEntry("Birim dönüştürme", "25 km to mile gibi bir ifade yazın."),
     HelpEntry("Tarih ve saat", "time, today veya date yazın."),
-    HelpEntry("Pano geçmişi", "cb geçmişi gösterir; cb clear silme onayı ister."),
-    HelpEntry("Takma ad", "Ayarlar'da yt → web adresi veya vs → code.desktop tanımlayın."),
+    QUICK_HELP_ENTRIES[2],
+    HelpEntry(
+        "Takma ad",
+        "Ayarlar'da ör. yt → web adresi veya vs → code.desktop tanımlayın.",
+    ),
     HelpEntry("Favoriler ve son kullanılanlar", "Ctrl+D ile favori; boş aramada favori ve geçmiş."),
     HelpEntry("Ayarlar", "Ctrl+, ile tercihleri açın."),
     HelpEntry("Klavye", "↑/↓ seçer · Enter çalıştırır · Escape gizler."),
-    HelpEntry("Kısayollar", "Ctrl+D favori · Ctrl+R yenile · Ctrl+, ayarlar · Ctrl+L temizle."),
+    QUICK_HELP_ENTRIES[3],
+    HelpEntry(
+        "Kısayollar",
+        "Ctrl+D favori · Ctrl+R uygulama/dosya dizinini yenile · "
+        "Ctrl+, ayarlar · Ctrl+L temizle.",
+    ),
 )

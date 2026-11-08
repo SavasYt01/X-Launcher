@@ -37,12 +37,13 @@ ENGINE_ALIASES = {
 def build_search_uri(query: str, engine: str = "google") -> str:
     normalized_query = query.strip()
     if not normalized_query:
-        raise ValueError("Web search query cannot be empty.")
+        raise ValueError("Web araması için bir ifade yazın.")
     selected_engine = engine.casefold()
     if selected_engine not in SEARCH_ENGINES:
-        raise ValueError("Unsupported web search engine.")
+        raise ValueError("Desteklenmeyen web arama motoru.")
     base_uri = SEARCH_ENGINES[selected_engine][1]
-    return f"{base_uri}?{urlencode({'search_query' if selected_engine == 'youtube' else 'q': normalized_query})}"
+    parameter = "search_query" if selected_engine == "youtube" else "q"
+    return f"{base_uri}?{urlencode({parameter: normalized_query})}"
 
 
 def engine_for_prefix(prefix: str, default_engine: str = "google") -> str:
@@ -56,19 +57,19 @@ def engine_for_prefix(prefix: str, default_engine: str = "google") -> str:
 def validate_web_uri(uri: str) -> str:
     """Return a safe HTTP(S) URL or reject non-web and credentialed URLs."""
     if any(ord(character) <= 0x20 for character in uri):
-        raise ValueError("Only HTTP and HTTPS web addresses are supported.")
+        raise ValueError("Yalnızca HTTP ve HTTPS web adresleri desteklenir.")
     try:
         parsed = urlsplit(uri)
         _ = parsed.port
     except ValueError as error:
-        raise ValueError("Only HTTP and HTTPS web addresses are supported.") from error
+        raise ValueError("Yalnızca HTTP ve HTTPS web adresleri desteklenir.") from error
     if (
         parsed.scheme not in {"http", "https"}
         or parsed.hostname is None
         or parsed.username is not None
         or parsed.password is not None
     ):
-        raise ValueError("Only HTTP and HTTPS web addresses are supported.")
+        raise ValueError("Yalnızca HTTP ve HTTPS web adresleri desteklenir.")
     return uri
 
 
@@ -76,7 +77,7 @@ def open_web_uri(uri: str) -> None:
     """Open a validated HTTP(S) URL in the configured default browser."""
     safe_uri = validate_web_uri(uri)
     if not Gio.AppInfo.launch_default_for_uri(safe_uri, create_app_launch_context()):
-        raise RuntimeError("The default browser could not be opened.")
+        raise RuntimeError("Varsayılan tarayıcı açılamadı.")
 
 
 def open_web_search(query: str) -> None:

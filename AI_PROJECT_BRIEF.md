@@ -41,7 +41,9 @@ The router checks exact case-insensitive aliases first, then handles:
 | Input | Behavior |
 |---|---|
 | `firefox` | Fuzzy-search installed, visible `.desktop` applications |
-| `= (5 + 3) * 2` | Safely evaluate arithmetic using a restricted AST |
+| `u` | Show up to the configured number of matching applications, including metadata |
+| `5*3`, `(10+2)/3`, `= 5*3` | Safely evaluate arithmetic using a restricted AST |
+| `f photo.png`, `file downloads` | Search indexed files/directories under the user's home and open with the default app |
 | `g Python GTK`, `ddg Python GTK`, `br GTK`, `yt GTK`, `gh GTK` | Search Google, DuckDuckGo, Brave, YouTube, or GitHub |
 | `s GTK` | Search with the configured default engine |
 | `25 km to mile` | Convert supported units using `Decimal` |
@@ -52,8 +54,12 @@ The router checks exact case-insensitive aliases first, then handles:
 
 `↑`/`↓` navigate results, `Enter` activates the selection, and `Escape` hides
 the launcher. `Ctrl+D` toggles the selected app's favorite state, `Ctrl+R`
-refreshes the app catalog, and `Ctrl+,` opens preferences. Launch/copy errors
-and other user-facing status messages are in Turkish.
+refreshes the app catalog and home-file index, and `Ctrl+,` opens preferences.
+The empty query includes quick command hints as well as configured favorites/
+recent apps.
+The file index skips hidden entries and symlinks, is bounded by entry count and
+directory depth, and is built asynchronously. Launch/copy errors and other
+user-facing status messages are in Turkish.
 
 ## Runtime and dependencies
 
@@ -75,6 +81,7 @@ and other user-facing status messages are in Turkish.
 | `main.py` | GTK application/window, routing, result activation, keyboard controls, refresh and file watching |
 | `desktop_parser.py` | Discover visible Gio desktop apps and expose search metadata |
 | `fuzzy_search.py` | Unicode/diacritic normalization, typo-tolerant matching, stable ranking |
+| `file_search.py` | Bounded home-directory index and ranked local file search |
 | `command_router.py` | Classify aliases, calculator, web, clipboard and local provider queries |
 | `calculator.py` | Restricted AST arithmetic; never use Python `eval()` |
 | `providers.py` | Local date/time and Decimal unit conversions |
@@ -87,7 +94,7 @@ and other user-facing status messages are in Turkish.
 | `clipboard_history.py` | Persist explicitly copied text only |
 | `alias_manager.py` | Load, validate, resolve and save app/web aliases |
 | `theme_manager.py` | Load/validate user GTK CSS; use built-in dark CSS on failure |
-| `preferences_window.py` | GTK4 preferences for search, appearance, aliases and local data |
+| `preferences_window.py` | Categorized GTK4 settings, alias editing and live theme preview |
 | `toggle_daemon.py` | Private Unix-socket server/client, toggle, stop and reload commands |
 | `version.py` | Application ID, display name and version |
 | `install.sh`, `uninstall.sh` | User-level installation and code-only removal |
@@ -96,21 +103,26 @@ and other user-facing status messages are in Turkish.
 ## Search and launch flow
 
 1. `main.py` passes the query, an exact alias if present, and the configured
-   default engine to `command_router.route_query()`.
+   default engine to `command_router.route_query()`. Bare arithmetic expressions
+   with an operator route to the calculator; `=` remains supported.
 2. Application queries go to `fuzzy_search.search_applications()`. Ranking
    considers display name, generic name, executable, desktop ID, keywords,
    categories and comment; favorites and optional recent-use scores are small
-   boosts. Results are capped by the configured limit.
-3. Empty queries can show favorites and recently launched apps according to
+   boosts. Results are capped by the configurable limit (default 12).
+3. `f ` and `file ` queries search the asynchronous bounded index under the
+   user's home directory; results open with Gio's default URI handler.
+4. Empty queries can show favorites and recently launched apps according to
    preferences.
-4. Gio icons are rendered by GTK4 `Gtk.Image`; a generic icon is used when the
+5. Gio icons are rendered by GTK4 `Gtk.Image`; a generic icon is used when the
    desktop entry provides none.
-5. App activation calls `app_launcher.launch_application()`, which launches the
+6. App activation calls `app_launcher.launch_application()`, which launches the
    original `GioUnix.DesktopAppInfo`. A successful launch updates history.
-6. Calculator, clipboard and provider outputs use
+7. Calculator, clipboard and provider outputs use
    `Gdk.Display.get_default().get_clipboard().set_text()` when copied. Web
-   results open via `Gio.AppInfo.launch_default_for_uri()`.
-7. Exceptions and false launch results must stay visible in the Turkish status
+   and file results open via `Gio.AppInfo.launch_default_for_uri()`. Search
+   requests use `search_query` for YouTube and `q` for other engines; AppImage
+   launches restore the host environment through `create_app_launch_context()`.
+8. Exceptions and false launch results must stay visible in the Turkish status
    label; do not convert failures into success-shaped fallbacks.
 
 ## User configuration and privacy

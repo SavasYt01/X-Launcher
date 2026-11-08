@@ -26,6 +26,20 @@ class FuzzySearchTests(unittest.TestCase):
         results = search_applications(self.applications, "chr")
         self.assertEqual(results[0].name, "Google Chrome")
 
+    def test_single_character_query_returns_multiple_matches(self) -> None:
+        applications = [
+            SimpleNamespace(name="Ubuntu Settings", comment="", desktop_id="settings.desktop"),
+            SimpleNamespace(name="Utilities", comment="", desktop_id="utilities.desktop"),
+            SimpleNamespace(name="Calculator", comment="", desktop_id="calculator.desktop"),
+        ]
+
+        results = search_applications(applications, "u", limit=12)
+
+        self.assertEqual(
+            {result.name for result in results},
+            {"Ubuntu Settings", "Utilities", "Calculator"},
+        )
+
     def test_empty_query_returns_no_results(self) -> None:
         self.assertEqual(search_applications(self.applications, "  "), [])
 

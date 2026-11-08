@@ -116,8 +116,6 @@ def search_applications(
         generic_name = normalize_text(getattr(application, "generic_name", ""))
         score = max(score, _score_text(normalized_query, generic_name, name_field=False))
 
-        if not score and len(normalized_query) == 1:
-            continue
         if not score:
             fields = [
                 getattr(application, "executable", ""),

@@ -8,11 +8,13 @@ from pathlib import Path
 import gi
 
 gi.require_version("Gdk", "4.0")
+gi.require_version("Gio", "2.0")
 gi.require_version("Gtk", "4.0")
 gi.require_version("Pango", "1.0")
-from gi.repository import Gdk, GLib, Gtk, Pango
+from gi.repository import Gdk, Gio, GLib, Gtk, Pango
 
 from alias_manager import Alias, load_aliases, resolve_alias
+from app_launch_context import create_app_launch_context
 from app_launcher import ApplicationLaunchError, launch_application
 from calculator import CalculationError, CalculationResult, calculate
 from clipboard_history import (
@@ -24,9 +26,15 @@ from clipboard_history import (
 from command_router import route_query
 from config_manager import ConfigManager
 from desktop_parser import DesktopApplication, load_desktop_applications
+from file_search import (
+    FileSearchResult,
+    index_home_files,
+    resolve_home_path,
+    search_files,
+)
 from favorites_manager import FavoritesManager
 from fuzzy_search import search_applications
-from help_content import HELP_ENTRIES, HelpEntry
+from help_content import HELP_ENTRIES, QUICK_HELP_ENTRIES, HelpEntry
 from history_manager import history_scores, load_history_ids, record_application
 from preferences_window import PreferencesWindow
 from providers import ProviderResult
@@ -56,6 +64,7 @@ class XLauncher(Gtk.Application):
             | ClipboardEntry
             | ProviderResult
             | HelpEntry
+            | FileSearchResult
         ] = []
         self.config = ConfigManager()
         self.favorites_manager = FavoritesManager()
@@ -73,6 +82,9 @@ class XLauncher(Gtk.Application):
         self._last_refresh = time.monotonic()
         self._file_signatures: dict[str, tuple[int, int, int] | None] = {}
         self._watch_source_id = 0
+        self._file_scan_lock = threading.Lock()
+        self.file_index: tuple[Path, ...] = ()
+        self._file_index_ready = False
 
     def do_startup(self) -> None:
         Gtk.Application.do_startup(self)
@@ -83,6 +95,7 @@ class XLauncher(Gtk.Application):
         self._remember_file_signatures()
         self._watch_source_id = GLib.timeout_add_seconds(1, self._watch_user_files)
         self._start_application_refresh()
+        self._start_file_index_refresh()
 
     def do_activate(self) -> None:
         if not self.daemon_mode:
@@ -124,7 +137,7 @@ class XLauncher(Gtk.Application):
 
         entry = Gtk.Entry()
         entry.add_css_class("launcher-entry")
-        entry.set_placeholder_text("Uygulama ara")
+        entry.set_placeholder_text("Uygulama ara · 5*3 hesapla · f dosya · help")
         entry.set_hexpand(True)
         entry.connect("changed", self._on_search_changed)
         entry.connect("activate", self._launch_selected)
@@ -194,6 +207,7 @@ class XLauncher(Gtk.Application):
         elif command == "reload":
             self._reload_user_files()
             self._start_application_refresh()
+            self._start_file_index_refresh()
         return GLib.SOURCE_REMOVE
 
     def _on_close_request(self, window: Gtk.ApplicationWindow) -> bool:
@@ -234,6 +248,21 @@ class XLauncher(Gtk.Application):
             except CalculationError as error:
                 self.results = []
                 self._set_status(str(error))
+        elif route.kind == "file_search":
+            if not route.value:
+                self.results = []
+                self._set_status("Dosya aramak için bir ifade yazın.")
+            elif not self._file_index_ready:
+                self.results = []
+                self._set_status("Dosyalar taranıyor...")
+            else:
+                self.results = search_files(
+                    route.value,
+                    self.file_index,
+                    limit=self.config.values["result_limit"],
+                )
+                if not self.results:
+                    self._set_status("Dosya veya klasör bulunamadı.")
         elif route.kind == "web_search":
             search_query, engine = route.value
             self.results = [WebSearchResult(search_query, engine)]
@@ -276,7 +305,9 @@ class XLauncher(Gtk.Application):
         if route.kind == "applications" and query.strip() and not self.results:
             self._set_status("Uygulama bulunamadı.")
 
-    def _empty_query_results(self) -> list[DesktopApplication]:
+    def _empty_query_results(
+        self,
+    ) -> list[DesktopApplication | HelpEntry]:
         favorites = (
             self.favorite_ids
             if self.config.values["show_favorites_on_empty"]
@@ -291,10 +322,14 @@ class XLauncher(Gtk.Application):
         )
         by_id = {app.desktop_id: app for app in self.applications}
         ordered_ids = dict.fromkeys([*favorites, *recent])
-        return [
+        applications = [
             by_id[desktop_id]
             for desktop_id in ordered_ids
             if desktop_id in by_id
+        ]
+        return [
+            *QUICK_HELP_ENTRIES,
+            *applications,
         ][: self.config.values["result_limit"]]
 
     def _populate_results(self) -> None:
@@ -349,6 +384,17 @@ class XLauncher(Gtk.Application):
                 row_content.append(image)
                 title = application.title
                 description_text = application.description
+            elif isinstance(application, FileSearchResult):
+                icon_name = (
+                    "folder-symbolic"
+                    if application.path.is_dir()
+                    else "text-x-generic-symbolic"
+                )
+                image = Gtk.Image.new_from_icon_name(icon_name)
+                image.set_pixel_size(28)
+                row_content.append(image)
+                title = application.name
+                description_text = application.description
             else:
                 image = Gtk.Image.new_from_icon_name("application-x-executable")
                 if application.icon is not None:
@@ -398,6 +444,7 @@ class XLauncher(Gtk.Application):
         if state & Gdk.ModifierType.CONTROL_MASK:
             if keyval in (Gdk.KEY_r, Gdk.KEY_R):
                 self._start_application_refresh()
+                self._start_file_index_refresh()
                 return True
             if keyval == Gdk.KEY_comma:
                 self._show_preferences()
@@ -450,6 +497,8 @@ class XLauncher(Gtk.Application):
                     self._copy_text(result.value)
             elif isinstance(result, HelpEntry):
                 return
+            elif isinstance(result, FileSearchResult):
+                self._open_file(result)
             else:
                 self._launch_application(result)
 
@@ -495,6 +544,21 @@ class XLauncher(Gtk.Application):
             open_engine_search(result.query, result.engine)
         except (GLib.Error, OSError, RuntimeError, ValueError) as error:
             self._set_status(f"Web araması açılamadı: {error}")
+            return
+        self._hide_launcher()
+
+    def _open_file(self, result: FileSearchResult) -> None:
+        try:
+            path = resolve_home_path(result.path)
+            launched = Gio.AppInfo.launch_default_for_uri(
+                path.as_uri(),
+                create_app_launch_context(),
+            )
+        except (GLib.Error, OSError, RuntimeError, ValueError) as error:
+            self._set_status(f"Dosya açılamadı: {error}")
+            return
+        if not launched:
+            self._set_status("Dosya varsayılan uygulamayla açılamadı.")
             return
         self._hide_launcher()
 
@@ -709,6 +773,51 @@ class XLauncher(Gtk.Application):
             GLib.idle_add(self._finish_application_refresh, generation, applications, error)
 
         threading.Thread(target=scan, name="xlauncher-app-scan", daemon=True).start()
+
+    def _start_file_index_refresh(self) -> None:
+        if not self._file_scan_lock.acquire(blocking=False):
+            return
+        if self._is_file_search_query():
+            self._set_status("Dosyalar taranıyor...")
+
+        def scan() -> None:
+            try:
+                indexed_paths = index_home_files()
+                error = None
+            except (OSError, RuntimeError, ValueError) as caught_error:
+                LOGGER.exception("Kullanıcı dosyaları taranamadı.")
+                indexed_paths = None
+                error = caught_error
+            GLib.idle_add(
+                self._finish_file_index_refresh,
+                indexed_paths,
+                error,
+            )
+
+        threading.Thread(target=scan, name="xlauncher-file-scan", daemon=True).start()
+
+    def _is_file_search_query(self) -> bool:
+        return (
+            self.entry is not None
+            and route_query(self.entry.get_text()).kind == "file_search"
+        )
+
+    def _finish_file_index_refresh(
+        self,
+        indexed_paths: tuple[Path, ...] | None,
+        error: Exception | None,
+    ) -> bool:
+        self._file_scan_lock.release()
+        if error is not None or indexed_paths is None:
+            if self._is_file_search_query():
+                self._set_status(f"Dosyalar taranamadı: {error}")
+            return GLib.SOURCE_REMOVE
+
+        self.file_index = indexed_paths
+        self._file_index_ready = True
+        if self._is_file_search_query() and self.entry is not None:
+            self._on_search_changed(self.entry)
+        return GLib.SOURCE_REMOVE
 
     def _finish_application_refresh(
         self,

@@ -12,7 +12,7 @@ from typing import Any
 LOGGER = logging.getLogger(__name__)
 DEFAULT_CONFIG: dict[str, Any] = {
     "active_theme": "default-dark",
-    "result_limit": 8,
+    "result_limit": 12,
     "search_engine": "google",
     "show_recent_on_empty": True,
     "show_favorites_on_empty": True,

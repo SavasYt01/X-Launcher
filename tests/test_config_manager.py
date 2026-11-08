@@ -29,6 +29,7 @@ class ConfigManagerTests(unittest.TestCase):
         self.assertEqual(config.values["search_engine"], "google")
         self.assertTrue(config.values["clipboard_history_enabled"])
         self.assertEqual(config.values["active_theme"], DEFAULT_CONFIG["active_theme"])
+        self.assertEqual(DEFAULT_CONFIG["result_limit"], 12)
 
     def test_keeps_unknown_fields_and_writes_private_atomically(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

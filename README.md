@@ -8,9 +8,12 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
 ## Özellikler
 
 - **Bulanık uygulama araması:** Uygulama adı, çalıştırılabilir dosya, anahtar
-  sözcük ve kategorilerde Unicode/aksan toleranslı eşleştirme.
-- **Güvenli hesap makinesi:** `= (5 + 3) * 2` girdilerini izinli AST düğümleriyle
-  değerlendirir; `eval()` ve shell çalıştırma yoktur.
+  sözcük ve kategorilerde Unicode/aksan toleranslı eşleştirme; kısa aramalarda
+  birden fazla sonuç.
+- **Güvenli hesap makinesi:** `5*3` veya `= (5 + 3) * 2` girdilerini izinli
+  AST düğümleriyle değerlendirir; `eval()` ve shell çalıştırma yoktur.
+- **Yerel dosya araması:** `f fotoğraf.png` veya `file indirilenler` ile ev
+  dizinindeki dosya/klasörleri arar ve varsayılan uygulamayla açar.
 - **Web araması:** Google, DuckDuckGo, Brave Search, YouTube ve GitHub için
   sorgu önekleri; varsayılan motor ayarlanabilir.
 - **Yardımcı komutlar:** Tarih/saat, birim dönüştürme ve X-Launcher içinden
@@ -22,7 +25,8 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
 - **GTK4 tema sistemi:** Kullanıcı temaları harici CSS dosyalarından yüklenir;
   geçersiz veya bulunamayan temalarda yerleşik koyu tema kullanılır.
 - **GTK4 ayar penceresi:** Arama motoru, sonuç sayısı, tema, yenileme, alias,
-  geçmiş, favori ve pano geçmişi seçenekleri.
+  geçmiş, favori ve pano geçmişi seçeneklerini kategorilere ayırır; tema
+  değişikliği kaydetmeden önce canlı önizlenir.
 - **Daemon ve yenileme:** Kullanıcıya özel Unix socket; ayarları ve uygulama
   kataloğunu komutla yenileme, isteğe bağlı otomatik tarama.
 - **Yardım ve tanılama:** `help`, `xlauncher --help` ve GTK penceresi açmadan
@@ -37,6 +41,7 @@ yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağl
 | `main.py` | GTK4 uygulama, arama yönlendirme, sonuç etkileşimleri ve daemon entegrasyonu |
 | `desktop_parser.py` | Gio/XDG uygulama keşfi ve görünürlük filtreleme |
 | `fuzzy_search.py` | Unicode-aware fuzzy ranking, geçmiş ve favori katkısı |
+| `file_search.py` | Sınırlı ev dizini taraması ve dosya/klasör sıralaması |
 | `command_router.py` | Alias, calculator, web, clipboard ve yerel sağlayıcı yönlendirmesi |
 | `calculator.py` | Kısıtlı AST ile güvenli aritmetik |
 | `providers.py` | Yerel tarih/saat ve Decimal tabanlı birim dönüştürme |
@@ -121,7 +126,9 @@ kurulumun `xlauncher.desktop` girdisine dokunmaz.
 | Girdi | İşlem |
 |---|---|
 | `firefox` | Kurulu uygulamaları fuzzy arar |
-| `= (5 + 3) * 2` | Hesaplar; Enter sonucu panoya kopyalar |
+| `u` | İsmi veya metaverisi eşleşen birden fazla uygulamayı gösterebilir |
+| `5*3`, `(10+2)/3` | Hesaplar; Enter sonucu panoya kopyalar (`=` isteğe bağlı) |
+| `f fotoğraf.png`, `file indirilenler` | Ev dizininde dosya/klasör arar; Enter açar |
 | `g python GTK` | Google'da arar |
 | `ddg python GTK` | DuckDuckGo'da arar |
 | `br GTK4`, `yt GTK4`, `gh GTK4` | Brave, YouTube veya GitHub'da arar |
@@ -133,9 +140,12 @@ kurulumun `xlauncher.desktop` girdisine dokunmaz.
 | `yt` | Tanımlı alias'ı çözer (alias varsa komut önekinden önce gelir) |
 | `help` | Launcher içindeki Türkçe kullanım ipuçlarını gösterir |
 
-Klavye: `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma, `Escape` ile
+Klavye: `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma/açma, `Escape` ile
 pencereyi gizleme, `Ctrl+D` ile seçili uygulamayı favoriye alma/kaldırma,
-`Ctrl+R` ile uygulamaları yenileme ve `Ctrl+,` ile ayarları açma.
+`Ctrl+R` ile uygulama ve dosya dizinlerini yenileme ve `Ctrl+,` ile ayarları
+açma. `help` komutu kullanılabilir komutları ve kısayolları gösterir; `cb`
+X-Launcher içinde kopyalanan metinlerin yerel geçmişini açar. Boş aramada
+hızlı komut ipuçları favori ve son kullanılan uygulamalarla birlikte görünür.
 
 ## Ayarlar ve yerel veriler
 

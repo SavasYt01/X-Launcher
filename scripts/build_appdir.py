@@ -23,6 +23,7 @@ APPDIR_MODULES = (
     "web_search.py",
     "desktop_parser.py",
     "fuzzy_search.py",
+    "file_search.py",
     "app_launcher.py",
     "app_launch_context.py",
     "toggle_daemon.py",

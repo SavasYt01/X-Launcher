@@ -34,8 +34,8 @@ list.launcher-results row {
 }
 
 list.launcher-results row {
-  min-height: 48px;
-  padding: 4px 14px;
+  min-height: 56px;
+  padding: 8px 16px;
   border-radius: 8px;
 }
 
