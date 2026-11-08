@@ -40,10 +40,13 @@ class InstallScriptTests(unittest.TestCase):
             self.assertTrue((data_home / "xlauncher" / "history_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "alias_manager.py").is_file())
             self.assertTrue((data_home / "xlauncher" / "theme_manager.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "config_manager.py").is_file())
+            self.assertTrue((data_home / "xlauncher" / "preferences_window.py").is_file())
             self.assertTrue(
                 (data_home / "xlauncher/themes/default-dark/theme.css").is_file()
             )
             self.assertTrue((data_home / "xlauncher" / "xlauncher-toggle").is_file())
+            self.assertTrue((bin_dir / "xlauncher-uninstall").is_file())
             self.assertTrue((data_home / "icons/hicolor/scalable/apps/xlauncher.svg").is_file())
 
             entry = desktop_file.read_text(encoding="utf-8")
@@ -59,6 +62,28 @@ class InstallScriptTests(unittest.TestCase):
             )
             self.assertEqual(launcher.returncode, 0, launcher.stderr)
             self.assertIn("GTK4 application launcher", launcher.stdout)
+
+            settings = data_home / "xlauncher" / "config.json"
+            history = data_home / "xlauncher" / "history.json"
+            settings.write_text('{"active_theme":"nord"}\n', encoding="utf-8")
+            history.write_text("[]\n", encoding="utf-8")
+            custom_theme = data_home / "xlauncher" / "themes" / "nord" / "theme.css"
+            custom_theme.parent.mkdir(parents=True)
+            custom_theme.write_text("window { color: white; }\n", encoding="utf-8")
+            uninstall = subprocess.run(
+                [str(bin_dir / "xlauncher-uninstall")],
+                cwd=PROJECT_DIR,
+                env=environment,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(uninstall.returncode, 0, uninstall.stderr)
+            self.assertFalse((data_home / "xlauncher" / "main.py").exists())
+            self.assertTrue(settings.is_file())
+            self.assertTrue(history.is_file())
+            self.assertTrue(custom_theme.is_file())
+            self.assertFalse((bin_dir / "xlauncher").exists())
 
 
 if __name__ == "__main__":

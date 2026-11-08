@@ -29,11 +29,12 @@ if ! "$PYTHON" -c 'import gi; gi.require_version("Gtk", "4.0"); from gi.reposito
 fi
 
 mkdir -p "$APP_DIR" "$APP_DIR/themes/default-dark" "$BIN_DIR" "$APPLICATIONS_DIR" "$ICONS_DIR"
-for file in main.py calculator.py web_search.py desktop_parser.py fuzzy_search.py app_launcher.py toggle_daemon.py history_manager.py alias_manager.py theme_manager.py; do
+for file in main.py calculator.py web_search.py desktop_parser.py fuzzy_search.py app_launcher.py toggle_daemon.py history_manager.py alias_manager.py theme_manager.py config_manager.py favorites_manager.py providers.py command_router.py clipboard_history.py preferences_window.py version.py; do
     install -m 0644 "$PROJECT_DIR/$file" "$APP_DIR/$file"
 done
 install -m 0644 "$PROJECT_DIR/themes/default-dark/theme.css" "$APP_DIR/themes/default-dark/theme.css"
 install -m 0755 "$PROJECT_DIR/xlauncher-toggle" "$APP_DIR/xlauncher-toggle"
+install -m 0755 "$PROJECT_DIR/uninstall.sh" "$BIN_DIR/xlauncher-uninstall"
 install -m 0644 "$PROJECT_DIR/packaging/xlauncher.svg" "$ICONS_DIR/xlauncher.svg"
 
 {

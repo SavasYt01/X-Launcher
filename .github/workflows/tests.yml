@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install GTK4 introspection bindings
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes python3-gi gir1.2-gtk-4.0
+
+      - name: Validate source and scripts
+        run: |
+          /usr/bin/python3 -m py_compile *.py xlauncher-toggle
+          sh -n install.sh
+          sh -n uninstall.sh
+
+      - name: Run unit tests and project scan
+        run: /usr/bin/python3 scan_bugs.py

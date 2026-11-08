@@ -1,67 +1,67 @@
 # X-Launcher
 
-GTK4 ve Python ile geliştirilen, Linux masaüstü için koyu temalı uygulama
-başlatıcısı. Uygulama keşfi, bulanık arama, hesap makinesi, web araması,
-isteğe bağlı kullanım geçmişi ve kullanıcı tanımlı takma adlar sunar.
+GTK4 ve Python ile geliştirilen, Linux masaüstü için hızlı uygulama başlatıcısı.
+X-Launcher; kurulu uygulamaları arar, güvenli hesaplama yapar, web araması ve
+yerel yardımcı komutlar sunar. Wayland'de global kısayolları masaüstü ortamı
+yönetir; X-Launcher, GNOME kısayolundan tetiklenen kullanıcı daemon'ı sağlar.
 
 ## Özellikler
 
-- **Uygulama arama:** Gio/XDG uygulama veritabanındaki görünür `.desktop`
-  girdilerini bulanık eşleştirme ile arar.
-- **Hesap makinesi:** `= 5 * (12 + 4)` gibi ifadeleri güvenli AST
-  değerlendiricisiyle hesaplar; Python `eval()` kullanılmaz.
-- **Web araması:** `g python GTK4` sorgusunu URL-kodlayıp varsayılan tarayıcıda
-  açar.
-- **Son kullanılanlar:** Başarıyla başlatılan son 20 farklı uygulamanın
-  kimliğini yerel JSON dosyasında saklar ve arama sonuçlarında öne çıkarır.
-- **Takma adlar:** `yt` gibi tek kelimelik takma adları uygulama masaüstü
-  kimliklerine veya HTTP(S) adreslerine bağlar.
-- **Harici GTK4 temaları:** `theme.css` dosyalarından tema yükler; ayar veya
-  tema hatalarında yerleşik koyu görünüme döner.
-- **Klavye kullanımı:** `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma,
-  `Escape` ile pencereyi gizleme.
-- **Wayland için toggle daemon:** Özel GNOME klavye kısayollarından tetiklenmek
-  üzere kullanıcıya özel Unix socket kullanır.
-- **Koyu GTK4 arayüzü:** Başlıksız pencere, siyah yüzey ve SF Pro Display
-  bulunmadığında sistem sans-serif yazı tipi.
+- **Bulanık uygulama araması:** Uygulama adı, çalıştırılabilir dosya, anahtar
+  sözcük ve kategorilerde Unicode/aksan toleranslı eşleştirme.
+- **Güvenli hesap makinesi:** `= (5 + 3) * 2` girdilerini izinli AST düğümleriyle
+  değerlendirir; `eval()` ve shell çalıştırma yoktur.
+- **Web araması:** Google, DuckDuckGo, Brave Search, YouTube ve GitHub için
+  sorgu önekleri; varsayılan motor ayarlanabilir.
+- **Yardımcı komutlar:** Tarih/saat, birim dönüştürme ve X-Launcher içinden
+  açıkça kopyalanan metinlerin pano geçmişi.
+- **Geçmiş ба фаворит:** Сонголтоор хэрэглээний давтамж, сүүлийн хэрэглээг
+  эрэмбэлж, дуртай програмуудыг хоосон хайлтад харуулна.
+- **Takma adlar:** Uygulama desktop ID'lerine veya HTTP(S) adreslerine kişisel
+  kısayollar.
+- **GTK4 tema sistemi:** Kullanıcı temaları harici CSS dosyalarından yüklenir;
+  geçersiz veya bulunamayan temalarda yerleşik koyu tema kullanılır.
+- **GTK4 ayar penceresi:** Arama motoru, sonuç sayısı, tema, yenileme, alias,
+  geçmiş, favori ve pano geçmişi seçenekleri.
+- **Daemon ve yenileme:** Kullanıcıya özel Unix socket; ayarları ve uygulama
+  kataloğunu komutla yenileme, isteğe bağlı otomatik tarama.
 
-## Teknoloji ve mimari
+## Teknoloji ve dosya yapısı
 
 | Modül | Sorumluluk |
 |---|---|
-| `main.py` | GTK4 penceresi, arama yönlendirme, sonuçlar ve klavye etkileşimi |
-| `desktop_parser.py` | Gio ile XDG uygulama keşfi ve görünürlük filtreleme |
-| `fuzzy_search.py` | Bağımlılıksız bulanık eşleştirme ve geçmiş puan katkısı |
-| `history_manager.py` | Son kullanılan uygulamaları atomik JSON kaydıyla saklama |
-| `alias_manager.py` | Kullanıcı takma adlarını yükleme ve tam sorgu eşleştirme |
-| `theme_manager.py` | Kullanıcı GTK4 CSS temasını yükleme ve güvenli geri dönüş |
-| `calculator.py` | İzinli AST işlemleriyle güvenli aritmetik |
-| `web_search.py` | Google sorgusu ve doğrulanmış HTTP(S) adreslerini açma |
-| `app_launcher.py` | `.desktop` girdilerini shell kullanmadan başlatma |
-| `toggle_daemon.py` | Kullanıcıya özel Unix socket daemon'ı ve kontrolü |
-| `xlauncher-toggle` | Daemon'ı başlatma veya pencereyi açıp kapatma komutu |
-| `install.sh` | Kullanıcı kapsamlı kurulum |
+| `main.py` | GTK4 uygulama, arama yönlendirme, sonuç etkileşimleri ve daemon entegrasyonu |
+| `desktop_parser.py` | Gio/XDG uygulama keşfi ve görünürlük filtreleme |
+| `fuzzy_search.py` | Unicode-aware fuzzy ranking, geçmiş ve favori katkısı |
+| `command_router.py` | Alias, calculator, web, clipboard ve yerel sağlayıcı yönlendirmesi |
+| `calculator.py` | Kısıtlı AST ile güvenli aritmetik |
+| `providers.py` | Yerel tarih/saat ve Decimal tabanlı birim dönüştürme |
+| `web_search.py` | URL-kodlanmış web araması ve HTTP(S) URI doğrulaması |
+| `app_launcher.py` | `.desktop` uygulamalarını shell kullanmadan başlatma |
+| `config_manager.py` | Merkezi, doğrulanmış ayarlar ve atomik JSON kaydı |
+| `history_manager.py`, `favorites_manager.py` | Kullanıcıya özel geçmiş ve favoriler |
+| `clipboard_history.py` | Yalnızca X-Launcher'ın açıkça kopyaladığı metinleri saklama |
+| `alias_manager.py`, `theme_manager.py` | Alias ve CSS tema yükleme |
+| `preferences_window.py` | GTK4 ayarlar penceresi |
+| `toggle_daemon.py` | Unix socket daemon, toggle ve reload komutları |
 
-Uygulama Python'un standart kütüphanesini ve sistemden sağlanan GTK4,
-PyGObject, Gio/GioUnix bileşenlerini kullanır. Python paket bağımlılığı
-eklenmemiştir.
+Python ek bağımlılığı yoktur. GTK4, PyGObject, Gio/GioUnix ve ilgili GI
+typelib'leri işletim sisteminin paketlerinden sağlanır.
 
 ## Kurulum
 
-### Gereksinimler
+### Önerilen: kullanıcı kapsamlı yerel kurulum
 
-- Linux masaüstü oturumu
-- Python 3.10 veya üzeri
-- GTK4 ve PyGObject
+`./install.sh` birincil, bakımı yapılan ve önerilen kurulum yoludur. Sistem
+dizinlerini değiştirmeden dosyaları kullanıcı hesabına yerleştirir.
 
-Ubuntu/Debian üzerinde GTK bileşenlerini kurun:
+Ubuntu/Debian'da GTK bağımlılıklarını kurun:
 
 ```bash
-sudo apt update
 sudo apt install python3-gi gir1.2-gtk-4.0
 ```
 
-Depoyu klonlayıp kullanıcı hesabına kurun:
+Ardından:
 
 ```bash
 git clone https://github.com/SavasYt01/X-Launcher.git
@@ -69,135 +69,110 @@ cd X-Launcher
 ./install.sh
 ```
 
-Kurulum `~/.local/share/xlauncher` altına uygulama dosyalarını, `~/.local/bin`
-altına komutu ve kullanıcı uygulama menüsü için `.desktop` girdisini yerleştirir.
-Sistem dizinlerini değiştirmez. Gerekirse `~/.local/bin` klasörünü `PATH`'e
-ekleyin. Uygulamayı doğrudan proje klasöründen `/usr/bin/python3 main.py` ile
-de başlatabilirsiniz.
+Varsayılan komut `~/.local/bin/xlauncher`, ayarlar ve uygulama dosyaları
+`~/.local/share/xlauncher/` altındadır. `~/.local/bin` `PATH` içinde değilse
+tam yolunu kullanın veya bu klasörü `PATH`'e ekleyin.
+
+Kurulumu kaldırmak için:
+
+```bash
+xlauncher-uninstall
+```
+
+Kaldırıcı uygulama kodu ve masaüstü kısayolunu siler; `config.json`,
+`history.json`, `favorites.json`, alias'lar, pano geçmişi ve özel temalar
+korunur. Kaldırıcı bulunamıyorsa proje dizinindeki `./uninstall.sh` dosyasını
+çalıştırabilirsiniz.
+
+### GNOME / Wayland klavye kısayolu
+
+**Ayarlar → Klavye → Klavye Kısayolları → Özel Kısayollar** bölümünde
+`~/.local/bin/xlauncher` komutunu istediğiniz tuş bileşimine (ör. `Super+Space`)
+atayın. İlk çağrı daemon'ı başlatır ve pencereyi açar; sonraki çağrılar
+pencereyi açıp kapatır. Wayland pencere yerleşimini ve odağı yönettiği için
+ekran ortasında görünme veya odağı alma garantisi verilemez.
+
+Daemon komutları:
+
+```bash
+xlauncher --toggle
+xlauncher --reload        # Ayarları ve uygulama kataloğunu yenile
+xlauncher --reload-apps   # Yalnızca uygulama listesini yenile
+xlauncher --stop
+xlauncher --version
+```
 
 ## Kullanım
 
-| Girdi | Sonuç |
+| Girdi | İşlem |
 |---|---|
-| `firefox` | Kurulu uygulamaları arar |
-| `= (5 + 3) * 2` | Hesaplar; seçili sonucu `Enter` ile panoya kopyalar |
-| `g python GTK Wayland` | Google aramasını varsayılan tarayıcıda açar |
-| `yt` | Yapılandırılmış bir web takma adını açar |
-| `vs` | Yapılandırılmış bir uygulama takma adını başlatır |
+| `firefox` | Kurulu uygulamaları fuzzy arar |
+| `= (5 + 3) * 2` | Hesaplar; Enter sonucu panoya kopyalar |
+| `g python GTK` | Google'da arar |
+| `ddg python GTK` | DuckDuckGo'da arar |
+| `br GTK4`, `yt GTK4`, `gh GTK4` | Brave, YouTube veya GitHub'da arar |
+| `s GTK4` | Ayarlardaki varsayılan motorda arar |
+| `25 km to mile` | Birim dönüştürür |
+| `time`, `today`, `date` | Yerel saat veya tarihi gösterir |
+| `cb` | X-Launcher'dan kopyalanan metin geçmişini gösterir |
+| `cb clear` | Pano geçmişini onay isteyerek siler |
+| `yt` | Tanımlı alias'ı çözer (alias varsa komut önekinden önce gelir) |
 
-### GNOME klavye kısayolu
+Klavye: `↑` / `↓` ile sonuç seçme, `Enter` ile çalıştırma, `Escape` ile
+pencereyi gizleme, `Ctrl+D` ile seçili uygulamayı favoriye alma/kaldırma,
+`Ctrl+R` ile uygulamaları yenileme ve `Ctrl+,` ile ayarları açma.
 
-Wayland'de global kısayol masaüstü ortamı tarafından yönetilir. **Ayarlar →
-Klavye → Klavye Kısayolları → Özel Kısayollar** bölümünde `xlauncher` komutunu
-istediğiniz kısayola (ör. `Super+Space`) atayın. Uygulama kendi başına global
-tuş dinlemez; komut ilk kullanımda daemon'ı başlatır, sonraki çağrılarda
-pencereyi açıp kapatır.
+## Ayarlar ve yerel veriler
 
-Daemon'ı elle durdurmak için:
+Tüm JSON dosyaları `$XDG_DATA_HOME/xlauncher/` içinde, `XDG_DATA_HOME`
+tanımlı değilse `~/.local/share/xlauncher/` altında tutulur:
 
-```bash
-xlauncher --stop
-```
+- `config.json`: aktif tema, varsayılan arama motoru, sonuç sayısı, yenileme
+  aralığı, geçmiş/favori görünürlüğü ve pano ayarları.
+- `aliases.json`: kullanıcının app/web takma adları.
+- `history.json`: desktop ID, son kullanım zamanı ve kullanım sayacı.
+- `favorites.json`: favori desktop ID'leri.
+- `clipboard_history.json`: sadece uygulama içindeki açık kopyalama
+  eylemlerinden gelen metinler; sistem panosu arka planda dinlenmez.
+- `themes/<ad>/theme.css`: kullanıcı GTK4 CSS temaları.
 
-## Geçmiş ve takma ad ayarları
+İlk kez açınca veya menüdeki kısayolla ayarlar penceresini kullanın. `Ctrl+,`
+ile açılabilir. Bozuk ayar dosyalarında başlatıcı çalışmaya devam eder;
+varsayılan değerler kullanılır ve hata loga kaydedilir. JSON yazımı atomiktir
+ve kullanıcı dosyaları `0600` izniyle saklanır.
 
-İki ayar dosyası da kullanıcı veri dizininde bulunur; varsayılan konumlar:
+## Güvenlik ve gizlilik
 
-- Geçmiş: `~/.local/share/xlauncher/history.json`
-- Takma adlar: `~/.local/share/xlauncher/aliases.json`
+- Hesap makinesi yalnızca izinli AST düğümlerini çalıştırır; `eval()` yoktur.
+- `.desktop` girdileri `GioUnix.DesktopAppInfo.launch()` ile açılır, shell'e
+  verilmez.
+- Web araması URL-kodlanır. Takma adlar yalnızca doğrulanmış HTTP(S) adresleri
+  veya kurulu desktop ID'leri kabul eder.
+- Pano geçmişi sistem panosunu izlemez ve dış servise veri göndermez.
+- Geçmiş, ayarlar ve alias'lar yerel kullanıcı verisidir; kod bu verileri
+  üçüncü taraf sunuculara göndermez.
 
-`XDG_DATA_HOME` tanımlıysa bu dosyalar `$XDG_DATA_HOME/xlauncher/` altında
-oluşturulur. Geçmişte en son çalıştırılan 20 farklı uygulamanın desktop ID'si ve
-UTC zaman damgası saklanır. Aynı uygulama tekrar çalıştırıldığında en başa
-taşınır. Geçmiş dosyası okunamaz veya bozuksa başlatıcı çalışmaya devam eder;
-geçmiş kaydı ayrı bir atomik yazma işlemiyle güncellenir.
-
-Takma ad dosyası isteğe bağlıdır. Örnek içerik:
-
-```json
-{
-  "yt": {
-    "type": "web",
-    "value": "https://youtube.com"
-  },
-  "vs": {
-    "type": "app",
-    "value": "code.desktop"
-  }
-}
-```
-
-Takma ad sorgusu tam eşleşir ve büyük/küçük harf duyarsızdır. `app` değeri
-uygulamanın desktop ID'si olmalıdır; örneğin sistemdeki dosya
-`code.desktop`. `web` türü yalnızca HTTP(S) adreslerini kabul eder. Eksik veya
-geçersiz JSON normal aramaya geri dönülmesine neden olur; geçersiz takma ad
-tanımları yok sayılır.
-
-Takma adlar başlatıcı açılırken yüklenir. Daemon çalışıyorsa dosyayı
-düzenledikten sonra `xlauncher --stop` çalıştırın; sonraki kısayol çağrısı yeni
-ayarlarla daemon'ı yeniden başlatır.
-
-## Temalar
-
-Temalar `~/.local/share/xlauncher/themes/<tema-adı>/theme.css` konumundan
-yüklenir. `XDG_DATA_HOME` ayarlıysa bunun yerine
-`$XDG_DATA_HOME/xlauncher/themes/` kullanılır. Aktif tema
-`~/.local/share/xlauncher/config.json` dosyasında belirlenir:
-
-```json
-{
-  "active_theme": "default-dark"
-}
-```
-
-Yeni bir tema eklemek için kendi CSS dosyanızı bir alt klasöre kaydedin ve
-`active_theme` değerini klasör adıyla değiştirin. Örneğin
-`themes/nord/theme.css` için değer `nord` olmalıdır. Varsayılan tema
-`themes/default-dark/theme.css` içindedir. GTK `Gtk.ListBox` kullanıldığı için
-sonuç satırlarının seçicisi `list.<css-class> row:selected` biçimindedir;
-GTK CSS widget adı `list` olarak kullanılır. Temalar CSS sözdizimi hatası
-verirse, dosyası yoksa veya yapılandırma geçersizse X-Launcher yerleşik koyu
-CSS'e döner ve Türkçe durum mesajı gösterir. Tema değişikliklerini uygulamak
-için daemon'ı `xlauncher --stop` ile durdurup yeniden açın.
-
-## Güvenlik ve tasarım kararları
-
-- Hesap makinesi yalnızca izin verilen AST düğümlerini değerlendirir; `eval()`
-  ve Python kodu çalıştırma yoktur. İfade uzunluğu, AST boyutu ve sayı
-  büyüklüğü sınırlandırılmıştır.
-- Uygulamalar `GioUnix.DesktopAppInfo.launch()` ile açılır; `.desktop`
-  `Exec` metni shell'e verilmez.
-- Web sorguları URL-kodlanır. Web takma adları yalnızca HTTP(S) URL'lerine
-  gidebilir; `javascript:`, `file:` ve kimlik bilgisi içeren URL'ler reddedilir.
-- Geçmiş ve takma adlar kullanıcı veri dizininde saklanır; üçüncü taraf
-  kütüphane veya uzaktaki servise gönderilmez.
-
-## Test ve tanılama
-
-Tüm birim testlerini çalıştırın:
+## Geliştirme ve test
 
 ```bash
 python3 -m unittest discover -s tests -v
-```
-
-Statik proje taramasını ve testleri birlikte çalıştırın:
-
-```bash
 python3 scan_bugs.py
+bash -n install.sh
+bash -n uninstall.sh
 ```
 
-Testler hesap makinesini, arama sıralamasını, geçmişi, takma adları, web
-adreslerini, kurulumu ve daemon socket yaşam döngüsünü kapsar.
+GitHub Actions, Ubuntu 24.04 üzerinde GTK4 introspection bağlamalarıyla aynı
+test ve tanılama taramasını çalıştırır.
 
-## Platform notları
+## Deneysel / bakımı yapılmayan AppImage
 
-Wayland pencerenin konumunu ve odak alıp almayacağını yönetir; X-Launcher ekran
-ortasında açılmayı veya odak almayı garanti edemez. AppImage paketleme tarifi
-bulunmasına rağmen henüz doğrulanmış bir AppImage çıktısı yoktur. Mevcut tarif
-Ubuntu Jammy amd64 hedeflidir ve yeni dağıtımlarda test edilmemiştir; önerilen
-yöntem `./install.sh` ile kullanıcı kapsamlı kurulumdur.
+AppImage tarifi (`packaging/AppImageBuilder.yml`) Ubuntu Jammy amd64 hedefler;
+başka sürümlerde, özellikle Ubuntu 26.04 / GNOME 50.1 gibi daha yeni
+ortamlarda Python/GTK sürüm uyumluluğu doğrulanmamıştır. AppImage mevcut
+haliyle deneysel ve bakımı yapılmayan seçenektir. Üretim veya günlük kullanım
+için `./install.sh` yerel kurulumu tercih edin.
 
 ## Lisans
 
-Bu depoda henüz bir lisans dosyası bulunmuyor. Yeniden dağıtım veya katkı için
-lisans koşulları belirlenene kadar depo sahibinden izin alın.
+Depoda şu anda `LICENSE` dosyası yoktur. Lisans eklenene kadar yeniden
+dağıtım koşulları belirlenmiş değildir.

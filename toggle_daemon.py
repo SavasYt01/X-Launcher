@@ -117,7 +117,7 @@ class ToggleServer:
                     request = connection.recv(128).decode("utf-8").strip()
                     if not request:
                         continue
-                    if request not in {"toggle", "stop"}:
+                    if request not in {"toggle", "stop", "reload", "reload-apps"}:
                         connection.sendall(b"ERROR unknown command\n")
                         continue
                     GLib.idle_add(self.handler, request)
@@ -193,7 +193,10 @@ def control_daemon(command: str, script_path: Path) -> int:
                 raise RuntimeError("The launcher daemon did not stop within 3 seconds.")
             return 0
 
-        if _send_command("toggle"):
+        requested_command = command
+        if requested_command not in {"toggle", "reload", "reload-apps"}:
+            raise RuntimeError(f"Unsupported launcher command: {requested_command}")
+        if _send_command(requested_command):
             return 0
 
         runtime = _runtime_directory()
@@ -201,13 +204,13 @@ def control_daemon(command: str, script_path: Path) -> int:
         log_file = log_path.open("a", encoding="utf-8")
         try:
             appimage = os.environ.get("APPIMAGE")
-            command = (
+            process_command = (
                 [appimage, "--daemon"]
                 if appimage
                 else [sys.executable, str(script_path), "--daemon"]
             )
             subprocess.Popen(
-                command,
+                process_command,
                 stdin=subprocess.DEVNULL,
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
@@ -219,7 +222,7 @@ def control_daemon(command: str, script_path: Path) -> int:
 
         deadline = time.monotonic() + 5
         while time.monotonic() < deadline:
-            if _send_command("toggle", timeout=0.25):
+            if _send_command(requested_command, timeout=0.25):
                 return 0
             time.sleep(0.05)
         raise RuntimeError(f"Launcher daemon did not start. Check its log: {log_path}")

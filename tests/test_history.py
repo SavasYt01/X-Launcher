@@ -20,7 +20,8 @@ class HistoryManagerTests(unittest.TestCase):
                 ["firefox.desktop", "code.desktop"],
             )
             data = json.loads(path.read_text(encoding="utf-8"))
-            self.assertIn("timestamp", data[0])
+            self.assertIn("last_used", data[0])
+            self.assertEqual(data[0]["use_count"], 2)
 
     def test_keeps_only_the_last_twenty_unique_apps(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

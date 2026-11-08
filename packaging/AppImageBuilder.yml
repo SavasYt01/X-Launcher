@@ -1,7 +1,7 @@
 version: 1
 script:
   - mkdir -p "$TARGET_APPDIR/usr/bin" "$TARGET_APPDIR/usr/share/applications" "$TARGET_APPDIR/usr/share/icons/hicolor/scalable/apps"
-  - install -m 0644 "$SOURCE_DIR/main.py" "$SOURCE_DIR/calculator.py" "$SOURCE_DIR/web_search.py" "$SOURCE_DIR/desktop_parser.py" "$SOURCE_DIR/fuzzy_search.py" "$SOURCE_DIR/app_launcher.py" "$SOURCE_DIR/toggle_daemon.py" "$SOURCE_DIR/history_manager.py" "$SOURCE_DIR/alias_manager.py" "$SOURCE_DIR/theme_manager.py" "$TARGET_APPDIR/usr/bin/"
+  - install -m 0644 "$SOURCE_DIR/main.py" "$SOURCE_DIR/calculator.py" "$SOURCE_DIR/web_search.py" "$SOURCE_DIR/desktop_parser.py" "$SOURCE_DIR/fuzzy_search.py" "$SOURCE_DIR/app_launcher.py" "$SOURCE_DIR/toggle_daemon.py" "$SOURCE_DIR/history_manager.py" "$SOURCE_DIR/alias_manager.py" "$SOURCE_DIR/theme_manager.py" "$SOURCE_DIR/config_manager.py" "$SOURCE_DIR/favorites_manager.py" "$SOURCE_DIR/providers.py" "$SOURCE_DIR/command_router.py" "$SOURCE_DIR/clipboard_history.py" "$SOURCE_DIR/preferences_window.py" "$SOURCE_DIR/version.py" "$TARGET_APPDIR/usr/bin/"
   - mkdir -p "$TARGET_APPDIR/usr/bin/themes/default-dark"
   - install -m 0644 "$SOURCE_DIR/themes/default-dark/theme.css" "$TARGET_APPDIR/usr/bin/themes/default-dark/theme.css"
   - install -m 0755 "$SOURCE_DIR/xlauncher-toggle" "$TARGET_APPDIR/usr/bin/xlauncher-toggle"
@@ -16,7 +16,7 @@ AppDir:
     id: xlauncher
     name: X-Launcher
     icon: xlauncher
-    version: 1.0.0
+    version: 1.1.0
     exec: usr/bin/python3
     exec_args: $APPDIR/usr/bin/main.py --toggle
 

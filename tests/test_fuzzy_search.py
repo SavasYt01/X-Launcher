@@ -43,6 +43,26 @@ class FuzzySearchTests(unittest.TestCase):
 
         self.assertEqual(results[0].desktop_id, "manager.desktop")
 
+    def test_generic_name_is_weaker_than_a_direct_application_name_match(self) -> None:
+        applications = [
+            SimpleNamespace(
+                name="Firefox",
+                generic_name="Browser",
+                comment="",
+                desktop_id="firefox.desktop",
+            ),
+            SimpleNamespace(
+                name="Browser Utility",
+                generic_name="",
+                comment="",
+                desktop_id="browser.desktop",
+            ),
+        ]
+
+        results = search_applications(applications, "browser")
+
+        self.assertEqual(results[0].desktop_id, "browser.desktop")
+
 
 if __name__ == "__main__":
     unittest.main()

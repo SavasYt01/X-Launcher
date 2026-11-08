@@ -2,20 +2,20 @@
 
 import json
 import logging
-import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+from config_manager import ConfigManager, default_config_path
+
 DEFAULT_THEME_NAME = "default-dark"
-LOGGER = logging.getLogger(__name__)
 _THEME_NAME_PATTERN = re.compile(r"[A-Za-z0-9_-]+\Z")
+LOGGER = logging.getLogger(__name__)
 
 DEFAULT_THEME_CSS = """\
 window.launcher-window {
@@ -81,10 +81,6 @@ class ThemeLoadResult:
     warning: str | None = None
 
 
-def _data_home() -> Path:
-    return Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-
-
 def _is_valid_css(css: str) -> bool:
     provider = Gtk.CssProvider()
     errors: list[str] = []
@@ -112,37 +108,30 @@ def _fallback(warning: str) -> ThemeLoadResult:
 
 def load_theme(data_home: Path | None = None) -> ThemeLoadResult:
     """Load configured theme CSS or return the built-in dark stylesheet."""
-    root = data_home if data_home is not None else _data_home()
-    config_path = root / "xlauncher" / "config.json"
-    theme_name = DEFAULT_THEME_NAME
-
-    try:
-        config_content = config_path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        pass
-    except OSError:
-        return _fallback(
-            "Tema ayarları okunamadı, varsayılan tema kullanılıyor."
-        )
+    if data_home is None:
+        config_manager = ConfigManager()
+        root = default_config_path().parent.parent
     else:
-        try:
-            config: Any = json.loads(config_content)
-        except json.JSONDecodeError:
-            return _fallback(
-                "Tema ayarları geçersiz, varsayılan kullanılıyor."
-            )
-        if not isinstance(config, dict):
-            return _fallback(
-                "Tema ayarları geçersiz, varsayılan kullanılıyor."
-            )
-        configured_name = config.get("active_theme", DEFAULT_THEME_NAME)
-        if (
-            not isinstance(configured_name, str)
-            or _THEME_NAME_PATTERN.fullmatch(configured_name) is None
-        ):
-            return _fallback("Tema adı geçersiz, varsayılan kullanılıyor.")
-        theme_name = configured_name
+        config_manager = ConfigManager(data_home / "xlauncher" / "config.json")
+        root = data_home
+    try:
+        raw_config = json.loads(config_manager.path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raw_config = {}
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return _fallback("Tema ayarları geçersiz, varsayılan kullanılıyor.")
+    if not isinstance(raw_config, dict):
+        return _fallback("Tema ayarları geçersiz, varsayılan kullanılıyor.")
+    configured_theme = raw_config.get("active_theme", DEFAULT_THEME_NAME)
+    if (
+        not isinstance(configured_theme, str)
+        or _THEME_NAME_PATTERN.fullmatch(configured_theme) is None
+    ):
+        return _fallback("Tema adı geçersiz, varsayılan kullanılıyor.")
 
+    theme_name = config_manager.values["active_theme"]
+    if config_manager.warning:
+        return _fallback("Tema ayarları geçersiz, varsayılan kullanılıyor.")
     theme_path = root / "xlauncher" / "themes" / theme_name / "theme.css"
     try:
         css = theme_path.read_text(encoding="utf-8")

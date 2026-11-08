@@ -19,8 +19,17 @@ REQUIRED_FILES = (
     "history_manager.py",
     "alias_manager.py",
     "theme_manager.py",
+    "config_manager.py",
+    "favorites_manager.py",
+    "providers.py",
+    "command_router.py",
+    "clipboard_history.py",
+    "preferences_window.py",
+    "version.py",
     "xlauncher-toggle",
     "install.sh",
+    "uninstall.sh",
+    ".github/workflows/tests.yml",
     "packaging/xlauncher.desktop",
     "packaging/xlauncher.svg",
     "themes/default-dark/theme.css",
@@ -83,6 +92,13 @@ def main() -> int:
         "history_manager.py",
         "alias_manager.py",
         "theme_manager.py",
+        "config_manager.py",
+        "favorites_manager.py",
+        "providers.py",
+        "command_router.py",
+        "clipboard_history.py",
+        "preferences_window.py",
+        "version.py",
     )
     trees = {name: parse_module(scan, name) for name in modules}
     syntactically_valid = all(tree is not None for tree in trees.values())
@@ -114,7 +130,7 @@ def main() -> int:
         )
         scan.check(
             "Calculator results can be copied to the clipboard",
-            "set_content" in main_calls and "new_for_value" in main_calls,
+            "set_text" in main_calls and "get_clipboard" in main_calls,
         )
 
     calculator_tree = trees["calculator.py"]

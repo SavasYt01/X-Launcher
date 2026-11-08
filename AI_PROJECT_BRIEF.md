@@ -1,420 +1,201 @@
 # X-Launcher — AI Assistant Project Brief
 
-> **Use this document as context for another AI coding assistant.**
-> Read it together with the source files before proposing or making changes.
-> The repository is the source of truth if any detail here becomes stale.
+> Give this document and the repository to another coding assistant as project
+> context. The source and tests are authoritative if this brief becomes stale.
 
-## Copy/paste prompt
+## Copy/paste task instructions
 
 ```text
-You are helping develop X-Launcher, a personal Linux application launcher.
-First inspect the repository and this project brief. Treat the current source
-code and tests as authoritative; do not assume a reported bug is real until
-you verify it in the code or reproduce it.
+You are helping maintain X-Launcher, a personal Linux desktop application
+launcher written in Python with GTK4/PyGObject. Read this brief and inspect the
+relevant source and tests before changing code. Preserve the modular design,
+GTK4-only APIs, Turkish user-facing messages, current behavior, and explicit
+error reporting. Make a focused implementation, add regression tests, run the
+relevant checks, and update README.md and this brief when user-visible behavior
+or installation changes.
 
-Work in small, reviewable changes. Preserve the existing modular architecture,
-GTK4/PyGObject patterns, the Turkish user-facing messages, and the behavior of
-existing search modes. Do not rewrite modules or add dependencies unless the
-requested feature requires them. Before changing behavior, identify the
-relevant code path and tests. Add focused tests for behavior changes and run
-the smallest relevant validation, followed by the full unittest suite when
-appropriate.
+Never use eval() for calculator input, shell execution for desktop launch or
+web search, or GTK3 APIs. Launch desktop entries through Gio,
+open web addresses through Gio.AppInfo.launch_default_for_uri(), and use
+Gdk.Display.get_default().get_clipboard().set_text() for GTK4 clipboard writes.
+Do not claim Wayland guarantees window position or focus. Do not claim AppImage
+compatibility beyond its unvalidated Ubuntu Jammy amd64 recipe.
 
-Important project facts:
-- This is a GTK4 desktop GUI written in Python with PyGObject, not a terminal
-  application.
-- Installed applications are discovered through Gio.AppInfo and
-  GioUnix.DesktopAppInfo; Gio performs desktop-entry handling and visibility
-  filtering.
-- Application launching uses DesktopAppInfo.launch(), not shell execution.
-- Application-search queries use a small in-project fuzzy ranker.
-- A query beginning with "=" invokes calculator.py. It uses a restricted AST
-  evaluator; do not replace it with eval().
-- A query beginning with "g " opens a URL-encoded Google search through the
-  user's default browser. Do not execute the query as a shell command.
-- Exact user aliases are loaded from `$XDG_DATA_HOME/xlauncher/aliases.json`
-  (default `~/.local/share/xlauncher/aliases.json`) before calculator, web, or
-  app-search routing. App aliases target desktop IDs; web aliases accept only
+Explain changed files and verified test results. Do not claim GUI behavior,
+builds, or platform compatibility that was not actually tested.
+```
+
+## Purpose and current behavior
+
+X-Launcher is a small, borderless GTK4 launcher for Linux desktops, especially
+GNOME/Wayland. Its window is about 600×60 pixels when idle, uses a dark CSS
+theme, and grows to display search results. The window is launched or toggled
+by a user-level Unix-socket daemon; GNOME, not the application, owns global
+keyboard shortcuts.
+
+### Query modes
+
+The router checks exact case-insensitive aliases first, then handles:
+
+| Input | Behavior |
+|---|---|
+| `firefox` | Fuzzy-search installed, visible `.desktop` applications |
+| `= (5 + 3) * 2` | Safely evaluate arithmetic using a restricted AST |
+| `g Python GTK`, `ddg Python GTK`, `br GTK`, `yt GTK`, `gh GTK` | Search Google, DuckDuckGo, Brave, YouTube, or GitHub |
+| `s GTK` | Search with the configured default engine |
+| `25 km to mile` | Convert supported units using `Decimal` |
+| `time`, `today`, `date` | Display local time or date |
+| `cb` | List text explicitly copied from X-Launcher |
+| `cb clear` | Ask before clearing X-Launcher clipboard history |
+| an exact configured alias | Launch a desktop ID or open a validated HTTP(S) URL |
+
+`↑`/`↓` navigate results, `Enter` activates the selection, and `Escape` hides
+the launcher. `Ctrl+D` toggles the selected app's favorite state, `Ctrl+R`
+refreshes the app catalog, and `Ctrl+,` opens preferences. Launch/copy errors
+and other user-facing status messages are in Turkish.
+
+## Runtime and dependencies
+
+- Python 3.10 or later; standard library only beyond system GTK packages.
+- GTK4 and PyGObject, including Gio/GioUnix introspection typelibs.
+- The application discovers desktop entries using `Gio.AppInfo.get_all()` and
+  `GioUnix.DesktopAppInfo.should_show()`.
+- App discovery runs asynchronously; results are returned to GTK through the
+  GLib main loop. A configured polling interval can refresh the catalog.
+- Wayland may constrain focus and placement. `present()` and `grab_focus()` are
+  requests, not guarantees.
+- All user data is local. The clipboard history records only text copied
+  explicitly inside X-Launcher and does not monitor the system clipboard.
+
+## Modules
+
+| File | Responsibility |
+|---|---|
+| `main.py` | GTK application/window, routing, result activation, keyboard controls, refresh and file watching |
+| `desktop_parser.py` | Discover visible Gio desktop apps and expose search metadata |
+| `fuzzy_search.py` | Unicode/diacritic normalization, typo-tolerant matching, stable ranking |
+| `command_router.py` | Classify aliases, calculator, web, clipboard and local provider queries |
+| `calculator.py` | Restricted AST arithmetic; never use Python `eval()` |
+| `providers.py` | Local date/time and Decimal unit conversions |
+| `web_search.py` | URL-encoded search URIs, known search engines, validated HTTP(S) opening |
+| `app_launcher.py` | Launch a retained Gio desktop-entry object without shell parsing |
+| `config_manager.py` | Validated central settings and atomic private JSON writes |
+| `history_manager.py` | Recent app IDs, timestamps, usage counts, time/frequency ranking |
+| `favorites_manager.py` | Persist and validate favorite desktop IDs |
+| `clipboard_history.py` | Persist explicitly copied text only |
+| `alias_manager.py` | Load, validate, resolve and save app/web aliases |
+| `theme_manager.py` | Load/validate user GTK CSS; use built-in dark CSS on failure |
+| `preferences_window.py` | GTK4 preferences for search, appearance, aliases and local data |
+| `toggle_daemon.py` | Private Unix-socket server/client, toggle, stop and reload commands |
+| `version.py` | Application ID, display name and version |
+| `install.sh`, `uninstall.sh` | User-level installation and code-only removal |
+| `scan_bugs.py` | Structural checks plus unittest discovery (not a full static analyzer) |
+
+## Search and launch flow
+
+1. `main.py` passes the query, an exact alias if present, and the configured
+   default engine to `command_router.route_query()`.
+2. Application queries go to `fuzzy_search.search_applications()`. Ranking
+   considers display name, generic name, executable, desktop ID, keywords,
+   categories and comment; favorites and optional recent-use scores are small
+   boosts. Results are capped by the configured limit.
+3. Empty queries can show favorites and recently launched apps according to
+   preferences.
+4. Gio icons are rendered by GTK4 `Gtk.Image`; a generic icon is used when the
+   desktop entry provides none.
+5. App activation calls `app_launcher.launch_application()`, which launches the
+   original `GioUnix.DesktopAppInfo`. A successful launch updates history.
+6. Calculator, clipboard and provider outputs use
+   `Gdk.Display.get_default().get_clipboard().set_text()` when copied. Web
+   results open via `Gio.AppInfo.launch_default_for_uri()`.
+7. Exceptions and false launch results must stay visible in the Turkish status
+   label; do not convert failures into success-shaped fallbacks.
+
+## User configuration and privacy
+
+The data root is `$XDG_DATA_HOME/xlauncher/`, or
+`~/.local/share/xlauncher/` when `XDG_DATA_HOME` is unset:
+
+- `config.json`: theme, search engine, ranking/display options, result/history
+  limits, polling interval, and clipboard-history options.
+- `aliases.json`: one-word aliases with `app` desktop IDs or validated `web`
   HTTP(S) URLs.
-- Successful application launches are recorded in
-  `$XDG_DATA_HOME/xlauncher/history.json` (default
-  `~/.local/share/xlauncher/history.json`); the last 20 unique apps receive a
-  small fuzzy-search ranking boost.
-- GTK4 CSS is loaded from the active theme under
-  `$XDG_DATA_HOME/xlauncher/themes/<name>/theme.css` (default
-  `~/.local/share/xlauncher/themes/default-dark/theme.css`), selected through
-  `config.json`. Theme names are validated; malformed/missing CSS falls back to
-  built-in dark CSS and reports a Turkish status warning.
-- The optional toggle daemon receives commands over a per-user Unix socket.
-  GTK mutations are marshalled onto the GLib main loop.
-- Wayland controls window positioning and may deny focus requests. Do not
-  claim that the application can guarantee screen centering or focus.
-- Do not blindly add duplicate icon or stale-socket handling. App icons are
-  represented as Gio.Icon and shown with Gtk.Image.new_from_gicon(). The daemon
-  probes existing sockets, handles stale owned sockets, and has regression
-  tests for live/replaced sockets.
-- Application launch failures are reported in the launcher status label.
-- The status label is placed below the results list so operation feedback
-  appears at the bottom of the launcher window.
-- GTK4 clipboard writes use `Gdk.ContentProvider.new_for_value()` and
-  `Gdk.Clipboard.set_content()`; do not assume `Gdk.Clipboard.set_text()` is
-  available in the installed PyGObject binding.
-- AppImage packaging files exist, but an AppImage has not yet been built or
-  validated. The current recipe targets Ubuntu Jammy amd64 and needs review
-  before claiming compatibility with another target distribution.
+- `history.json`: unique desktop IDs with `last_used` timestamps and
+  `use_count`.
+- `favorites.json`: favorited desktop IDs.
+- `clipboard_history.json`: explicitly copied strings, bounded by configured
+  count.
+- `themes/<name>/theme.css`: user GTK4 CSS; theme name is constrained to one
+  safe directory component.
 
-For code changes, explain what changed, why it is correct, tests run and any
-remaining limitation. Do not say that an unrun build or GUI behavior was
-verified.
-```
+Settings and data writes use atomic replacement and restrictive permissions
+where applicable. Missing/corrupt optional data should not crash the launcher;
+log errors and retain sensible prior/default state. Do not silently hide actual
+write/launch failures. Never add clipboard polling or network transmission of
+local history.
 
-## Project at a glance
+## Daemon and CLI
 
-X-Launcher is a personal launcher for Linux desktop sessions. It provides a
-small, dark GTK4 window for searching desktop applications, plus two prefixed
-query modes:
+The daemon socket is `$XDG_RUNTIME_DIR/xlauncher/control.sock`, inside a
+user-owned private directory. It validates socket ownership and file type,
+probes an existing socket before stale-socket cleanup, and removes only its own
+socket inode on shutdown. Socket-thread UI callbacks must use `GLib.idle_add()`.
 
-| Input | Meaning | Action |
-|---|---|---|
-| `firefox` | Search installed desktop applications | Select a result and press Enter to launch |
-| `= (5 + 3) * 2` | Calculate arithmetic | Select the result and press Enter to copy it |
-| `g python GTK Wayland` | Search the web | Select the result and press Enter to open the default browser |
-| `yt` | Resolve a configured alias | Open its HTTP(S) URL or launch its desktop application |
-
-The window supports `Up`, `Down`, `Enter`, and `Escape`. A separate optional
-daemon and command-line toggle entrypoint allow GNOME to invoke the launcher
-through a custom keyboard shortcut on Wayland.
-
-## User and platform context
-
-- **Intended environment:** Linux desktop, particularly Ubuntu with GNOME and
-  Wayland. The original target description specified Ubuntu 26.04, GNOME 50.1,
-  Mutter/Wayland, Zsh, and Ptyxis.
-- **Language/runtime:** Python 3.
-- **GUI:** GTK4 through PyGObject.
-- **Desktop integration:** Gio/GioUnix and freedesktop `.desktop` entries.
-- **Visual target:** black `#000000` surface, white `#ffffff` text, SF Pro
-  Display at 16pt when installed, borderless window, 12px corners, subtle
-  shadow, and a 600×60 default size.
-- **Dependencies:** Python standard library plus system-provided PyGObject,
-  GTK4, and their GI typelibs. There is no Python package manifest in the
-  current project.
-
-The environment that previously ran the checks reported `/usr/bin/python3`
-with Python 3.14, GTK 4.22, and a Wayland display. That is an observation about
-the development environment, not a promise that every target system has the
-same versions.
-
-## Repository layout
+Commands:
 
 ```text
-.
-├── main.py
-├── desktop_parser.py
-├── fuzzy_search.py
-├── history_manager.py
-├── alias_manager.py
-├── theme_manager.py
-├── themes/default-dark/theme.css
-├── calculator.py
-├── web_search.py
-├── app_launcher.py
-├── toggle_daemon.py
-├── xlauncher-toggle
-├── install.sh
-├── scan_bugs.py
-├── tests/
-│   ├── test_calculator.py
-│   ├── test_fuzzy_search.py
-│   ├── test_history.py
-│   ├── test_aliases.py
-│   ├── test_theme_manager.py
-│   ├── test_install.py
-│   ├── test_toggle_daemon.py
-│   └── test_web_search.py
-├── packaging/
-│   ├── AppImageBuilder.yml
-│   ├── AppRun
-│   ├── xlauncher.desktop
-│   └── xlauncher.svg
-└── scripts/
-    └── build-appimage.sh
+xlauncher --toggle
+xlauncher --reload
+xlauncher --reload-apps
+xlauncher --stop
+xlauncher --version
 ```
 
-## Module responsibilities
+On Wayland, a GNOME custom shortcut should invoke `xlauncher`; do not implement
+global key capture in the Python process. Reload commands start a daemon if
+needed. Avoid arbitrary shell command protocols over the socket.
 
-### `main.py` — application and GTK interface
+## Install, test, and package
 
-`XLauncher` subclasses `Gtk.Application`. It creates the undecorated GTK4
-window, loads CSS from the theme manager into a `Gtk.CssProvider`, connects the
-entry's `changed` and `activate` signals, displays result rows and handles
-keyboard navigation.
+The primary supported install is the native user-level `./install.sh`; it
+installs the executable, Python modules, desktop entry and icon without sudo.
+`xlauncher-uninstall` removes application code/desktop integration while
+preserving user settings, history, aliases, clipboard data and custom themes.
 
-The `results` collection contains four result types:
-
-- `DesktopApplication` for installed desktop apps
-- `CalculationResult` for arithmetic results
-- `WebSearchResult` for a web search request
-- `Alias` for a web URL alias
-
-`_on_search_changed()` is the query router. It checks an exact alias first,
-then calculator syntax, the `g ` web-search prefix, and finally application
-fuzzy search. App aliases resolve to an installed desktop ID and use the
-normal launch path; web aliases are opened through Gio. When the query changes,
-the result list is rebuilt and the first row is selected if one exists.
-
-When a result is activated, the type determines the action:
-
-- desktop app → `app_launcher.launch_application()`
-- calculator result → copy its display value to the GTK clipboard
-- web result → `web_search.open_web_search()`
-- web alias → `web_search.open_web_uri()`
-
-Successful application launches are recorded in history; successful launches
-and web opens hide the launcher. Errors are shown in the status label.
-Calculator results remain visible and report clipboard success/failure there.
-
-### `desktop_parser.py` — desktop application discovery
-
-`load_desktop_applications()` calls `Gio.AppInfo.get_all()`, keeps
-`GioUnix.DesktopAppInfo` objects whose `should_show()` is true, wraps them in
-`DesktopApplication`, and sorts by case-insensitive display name.
-
-The wrapper retains the original Gio object, desktop ID, display name,
-executable string, description, and `Gio.Icon`. Keeping the original Gio
-object matters: launch behavior should use desktop-entry semantics instead of
-reconstructing commands from text.
-
-### `fuzzy_search.py` — application matching
-
-`search_applications(applications, query, limit=8)` normalizes whitespace and
-case, scores application names and descriptions, sorts by descending score,
-and returns up to eight matches.
-It accepts optional `history_ids`; a matching desktop ID gets a 40-point
-ranking boost. Only successful app launch IDs are recorded by the launcher.
-
-Scoring precedence is exact match, prefix, contiguous substring, then
-in-order/non-contiguous character matching. Name scores take precedence over
-description scores. This is intentionally a small dependency-free ranker; it
-is not Levenshtein distance and can return weak matches for short queries.
-
-### `calculator.py` — safe arithmetic
-
-`calculate(expression)` parses in Python `eval` mode but never evaluates
-Python code. It walks the AST and permits numeric constants, unary `+`/`-`,
-addition, subtraction, multiplication, division, floor division, modulo, and
-bounded integer powers.
-
-Resource limits currently include a 128-character expression, 64 AST nodes,
-integer numerator/denominator sizes up to 4096 bits, and exponents from -100
-to 100. Results use `Fraction`, so non-terminating decimals remain exact and
-display as a fraction (for example `1/3`).
-
-### `web_search.py` — default-browser web search
-
-`build_search_uri(query)` rejects an empty query and URL-encodes the query as
-the `q` parameter of a fixed Google HTTPS search URL.
-`open_web_search(query)` asks Gio to open that URI with the user's default
-browser. `open_web_uri(uri)` opens a validated HTTP(S) URI and rejects other
-schemes and credential-bearing URLs. Search text is data in a URL, never shell
-syntax.
-
-### `history_manager.py` — recent application history
-
-The module stores up to 20 unique desktop IDs with UTC timestamps in
-`$XDG_DATA_HOME/xlauncher/history.json` (default
-`~/.local/share/xlauncher/history.json`). A relaunch moves the ID to the top.
-Writes use a temporary file and atomic replacement. Missing or malformed data
-does not stop the launcher; persistence errors are logged.
-
-### `alias_manager.py` — user aliases
-
-The optional `$XDG_DATA_HOME/xlauncher/aliases.json` file maps one-word,
-case-insensitive exact query keys to `app` desktop IDs or `web` HTTP(S) URLs.
-Malformed files fall back to normal search; invalid entries are ignored.
-Desktop app aliases whose ID is not installed show an error instead of
-launching an unrelated command.
-
-### `theme_manager.py` — GTK4 CSS themes
-
-`load_theme()` reads `active_theme` from the user's `config.json`, validates
-the name as a single safe directory component, and reads that theme's
-`theme.css`. The default theme CSS is also bundled in the source/install tree.
-Invalid JSON, missing/unreadable theme files, empty CSS, and GTK CSS parse
-errors return the built-in dark CSS and a Turkish warning for the status label.
-The installed default theme uses GTK's `list` CSS node selector because the
-results widget is `Gtk.ListBox`, not `Gtk.ListView`.
-
-### `app_launcher.py` — launch a desktop application
-
-`launch_application(application)` checks that the stored Gio object is a
-`GioUnix.DesktopAppInfo`, then calls its `launch([], None)` method. It raises a
-clear error if the value is invalid or GLib reports that launch failed.
-
-### `toggle_daemon.py` — per-user command channel
-
-The daemon listens on
-`$XDG_RUNTIME_DIR/xlauncher/control.sock`. It verifies ownership and private
-permissions on runtime directories, sets restrictive socket permissions, and
-limits the Unix socket path length.
-
-If a socket path already exists, startup probes it. A responsive socket means
-another daemon is alive and must not be overwritten. A stale owned socket can
-be removed and rebound; an unexpected file is refused. Shutdown records the
-socket inode identity and removes only its own socket, avoiding deletion of a
-replacement socket.
-
-The server accepts `toggle` and `stop`. Its worker thread sends UI callbacks
-through `GLib.idle_add()` so GTK operations run on the GTK/GLib main loop.
-`control_daemon()` sends a command to an existing daemon or starts one and
-waits briefly for its socket. Daemon stdout/stderr are written to
-`$XDG_RUNTIME_DIR/xlauncher/daemon.log`.
-
-### `xlauncher-toggle` — executable entrypoint
-
-This Python script finds project modules beside itself when run from the source
-tree, or under `$XDG_DATA_HOME/xlauncher` (default
-`~/.local/share/xlauncher`) after installation. No arguments mean toggle;
-arguments such as `--help` or `--stop` are passed to `main.py`.
-
-### `install.sh` — per-user native install
-
-The shell installer checks the selected Python interpreter and GTK4 import,
-then copies application modules, the entrypoint, and SVG icon into user XDG
-folders. It writes a wrapper at `~/.local/bin/xlauncher` and a GNOME desktop
-entry under the user's applications directory. It does not require `sudo`.
-
-The Python executable can be overridden with `XLAUNCHER_PYTHON`; the binary
-directory can be overridden with `XLAUNCHER_BIN_DIR`. The installer is tested
-with paths containing spaces.
-
-### `scan_bugs.py` and `tests/`
-
-The scanner uses Python's `ast` module to perform limited structural checks,
-then starts unittest discovery in `tests/`. It is a project-specific check,
-not a complete static analyzer or security auditor.
-
-Tests cover fuzzy ranking, history persistence and corruption recovery, alias
-loading and URL validation, arithmetic success/rejection cases, web URL
-encoding, native installation with spaced paths, and socket
-stale/live/replacement scenarios.
-
-## Main runtime flows
-
-### Normal application search
-
-1. GTK emits the entry's `changed` signal.
-2. `XLauncher._on_search_changed()` first resolves exact aliases; absent an
-   alias, it routes calculator and web prefixes or calls `search_applications()`.
-3. Matching rows are rebuilt, with app icons rendered from Gio icon objects
-   and recent IDs receiving a small score boost.
-4. The first result is selected.
-5. `Enter` activates the selected desktop entry through Gio.
-6. On success, the desktop ID is moved to the top of the JSON history.
-
-### Alias query
-
-1. A trimmed query exactly matching an alias key (case-insensitive) is resolved.
-2. App aliases look up the configured desktop ID and use the regular Gio
-   launch path; web aliases open a validated HTTP(S) URL through Gio.
-3. Missing or invalid alias configuration falls back to normal query handling.
-
-### Calculator query
-
-1. A trimmed query starting with `=` is routed to `calculate()`.
-2. A valid expression becomes one `CalculationResult`.
-3. Selecting it and pressing `Enter` copies the exact result string to the
-   clipboard.
-4. Invalid expressions show a status error; they are not sent to app search.
-
-### Web search query
-
-1. A trimmed query starting with `g ` is routed to a `WebSearchResult`.
-2. The remaining text is URL-encoded by `urlencode`.
-3. Pressing `Enter` opens the fixed Google search URI via Gio.
-4. Empty `g ` queries show a status message.
-
-### Toggle daemon
-
-1. GNOME invokes the configured `xlauncher`/`xlauncher-toggle` command.
-2. The client connects to the private user socket.
-3. It sends `toggle`; if no daemon is running, it starts the daemon and retries.
-4. The daemon dispatches the UI toggle onto the GLib main context.
-
-## Setup and developer commands
-
-On Ubuntu, system GTK bindings are expected:
+Ubuntu/Debian system dependencies:
 
 ```bash
-sudo apt update
 sudo apt install python3-gi gir1.2-gtk-4.0
 ```
 
-Run directly from the project directory:
+Developer checks:
 
 ```bash
-/usr/bin/python3 main.py
-./xlauncher-toggle
+python3 -m unittest discover -s tests -v
+python3 scan_bugs.py
+bash -n install.sh
+bash -n uninstall.sh
 ```
 
-Install for the current user:
+GitHub Actions runs tests and source/script validation on Ubuntu 24.04 with GTK4
+bindings. Tests cover calculator safety, fuzzy ranking, settings, history,
+favorites, clipboard, aliases, providers, themes, daemon sockets and install/
+uninstall behavior. A passing headless unit suite does not verify visual
+behavior on every Wayland compositor.
 
-```bash
-./install.sh
-/home/baris/.local/bin/xlauncher
-```
+AppImage packaging is **experimental and unmaintained**. Its current recipe
+targets Ubuntu Jammy amd64 and is not validated on newer Ubuntu/GNOME/Python/
+GTK releases. Do not present it as a tested installation option; prefer
+`./install.sh`.
 
-Run tests and project checks:
+## Design and change constraints
 
-```bash
-/usr/bin/python3 -m unittest discover -s tests -v
-/usr/bin/python3 scan_bugs.py
-```
-
-The GNOME custom keyboard shortcut should invoke the installed launcher command
-(normally `/home/baris/.local/bin/xlauncher`). GNOME handles the global key;
-the Python process does not attempt to capture global keyboard input.
-
-## Visual and platform limitations
-
-- GTK CSS is in `main.py`; the window is borderless with a 600×60 default size.
-- Result rows increase the window's natural content height; the results area is
-  scrollable and capped.
-- SF Pro Display is optional. If it is unavailable, the CSS fallback is
-  sans-serif.
-- On Wayland, a client cannot guarantee its screen coordinates. `present()` and
-  `grab_focus()` request presentation/focus but Mutter may constrain them.
-- Do not claim that socket-based toggling itself guarantees focus or placement;
-  it only transports a command from GNOME to the launcher process.
-- The current source targets GTK4 APIs; do not replace them with GTK3 examples.
-
-## Packaging status
-
-`packaging/` and `scripts/build-appimage.sh` describe an AppImage route, but the
-AppImageBuilder tool could not be obtained in the development environment. No
-AppImage artifact has been built or tested.
-
-The current recipe is explicitly configured for **Ubuntu Jammy amd64**. Review
-its base distribution, Python/GTK versions, GI typelibs, runtime paths, and
-application entrypoint before using it as a distribution build. The native
-`install.sh` route is the validated installation path; it depends on GTK4 and
-PyGObject being installed on the host.
-
-## Coding guidance for future work
-
-1. Read the relevant module and tests before changing code.
-2. Confirm bug reports against current source; do not duplicate existing
-   behavior.
-3. Keep responsibilities separated: UI in `main.py`, desktop discovery in
-   `desktop_parser.py`, app ranking in `fuzzy_search.py`, calculations in
-   `calculator.py`, web URI/browser behavior in `web_search.py`, process
-   control in `toggle_daemon.py`.
-4. Keep user text in Turkish and update this brief/README when observable
-   behavior or setup changes.
-5. Never use `eval()` for calculator input, a shell for desktop-entry `Exec`,
-   or a shell to execute web-search text.
-6. Preserve explicit errors. Do not silently swallow socket, launch, or
-   install failures.
-7. Add regression tests for new behavior and run the focused test first.
-8. Be precise about what was actually tested; distinguish code/test validation
-   from visual desktop testing and package portability.
+- Preserve separation of concerns and existing public helpers; search for
+  prior art before adding parallel logic.
+- Keep GTK APIs GTK4-only, UI messages in Turkish, and Python types accurate.
+- Do not use shell execution for application launch or web query handling.
+- Do not weaken URL validation, socket ownership checks, permission checks or
+  calculator limits.
+- Add focused tests and update documentation for behavior changes.
+- Keep AppImage and Wayland capability claims strictly evidence-based.
+- No license file currently exists; do not claim a license.

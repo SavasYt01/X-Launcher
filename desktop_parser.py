@@ -12,9 +12,20 @@ class DesktopApplication:
         self.app_info = app_info
         self.desktop_id = app_info.get_id() or ""
         self.name = app_info.get_display_name() or self.desktop_id
+        self.generic_name = app_info.get_generic_name() or ""
+        keywords = app_info.get_keywords() or []
+        self.keywords = tuple(keyword for keyword in keywords if keyword)
         self.executable = app_info.get_executable() or ""
         self.comment = app_info.get_description() or ""
+        categories = app_info.get_categories() or ""
+        self.categories = tuple(
+            category for category in categories.split(";") if category
+        )
         self.icon = app_info.get_icon()
+
+
+def _application_key(application: DesktopApplication) -> str:
+    return application.desktop_id or application.name.casefold()
 
 
 def load_desktop_applications() -> list[DesktopApplication]:
@@ -26,4 +37,5 @@ def load_desktop_applications() -> list[DesktopApplication]:
         application = DesktopApplication(app_info)
         if application.name:
             applications.append(application)
-    return sorted(applications, key=lambda app: app.name.casefold())
+    unique = {_application_key(application): application for application in applications}
+    return sorted(unique.values(), key=lambda app: app.name.casefold())
