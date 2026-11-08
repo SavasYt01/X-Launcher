@@ -1,0 +1,31 @@
+version: 1
+script:
+  - mkdir -p "$TARGET_APPDIR/usr/bin" "$TARGET_APPDIR/usr/share/applications" "$TARGET_APPDIR/usr/share/icons/hicolor/scalable/apps"
+  - install -m 0644 "$SOURCE_DIR/main.py" "$SOURCE_DIR/calculator.py" "$SOURCE_DIR/web_search.py" "$SOURCE_DIR/desktop_parser.py" "$SOURCE_DIR/fuzzy_search.py" "$SOURCE_DIR/app_launcher.py" "$SOURCE_DIR/toggle_daemon.py" "$TARGET_APPDIR/usr/bin/"
+  - install -m 0755 "$SOURCE_DIR/xlauncher-toggle" "$TARGET_APPDIR/usr/bin/xlauncher-toggle"
+  - install -m 0644 "$SOURCE_DIR/packaging/xlauncher.desktop" "$TARGET_APPDIR/usr/share/applications/xlauncher.desktop"
+  - install -m 0644 "$SOURCE_DIR/packaging/xlauncher.svg" "$TARGET_APPDIR/usr/share/icons/hicolor/scalable/apps/xlauncher.svg"
+
+AppDir:
+  path: ./AppDir
+  after_runtime: |
+    install -m 0755 "$SOURCE_DIR/packaging/AppRun" "$TARGET_APPDIR/AppRun"
+  app_info:
+    id: xlauncher
+    name: X-Launcher
+    icon: xlauncher
+    version: 1.0.0
+    exec: usr/bin/python3
+    exec_args: $APPDIR/usr/bin/main.py --toggle
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: deb [arch=amd64] http://archive.ubuntu.com/ubuntu/ jammy main universe
+        key_url: https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x3B4FE6ACC0B21F32
+    include:
+      - python3
+      - python3-gi
+      - gir1.2-gtk-4.0
+      - libgtk-4-1
+      - adwaita-icon-theme

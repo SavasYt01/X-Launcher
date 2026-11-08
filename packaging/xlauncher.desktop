@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=X-Launcher
+Comment=Hızlı ve modern uygulama başlatıcı
+Exec=AppRun
+Icon=xlauncher
+Type=Application
+Categories=Utility;
+Terminal=false
+StartupNotify=false

@@ -1,0 +1,29 @@
+#!/usr/bin/env python3
+
+import os
+import sys
+from pathlib import Path
+
+script_directory = Path(__file__).resolve().parent
+if (script_directory / "main.py").is_file():
+    project_directory = script_directory
+else:
+    data_home = Path(
+        os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share"))
+    )
+    project_directory = data_home / "xlauncher"
+
+if not (project_directory / "main.py").is_file():
+    raise SystemExit(
+        f"X-Launcher files not found in {project_directory}. "
+        "Run install.sh or execute xlauncher-toggle from the project directory."
+    )
+
+sys.path.insert(0, str(project_directory))
+
+from main import main
+
+
+if __name__ == "__main__":
+    arguments = sys.argv[1:] or ["--toggle"]
+    raise SystemExit(main([str(project_directory / "main.py"), *arguments]))
